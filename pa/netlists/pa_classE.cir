@@ -1,0 +1,86 @@
+* 30 GHz Power Amplifier — IHP SG13G2
+* Single-ended Class-E PA using npn13G2l HBT
+*
+* Architecture:
+*   - Common-emitter with inductive load
+*   - Output matching network for 50 Ohm
+*   - Designed for high efficiency at 30 GHz
+*
+* Ports:
+*   IN  : RF input (from VCO)
+*   OUT : RF output (to antenna/TX port)
+*   VDD, VSS : supply
+
+.subckt pa_classE IN OUT VDD VSS
+
+    * Input matching (series L, shunt C)
+    L_match in_int IN 200p
+    C_match in_int VSS 100f
+    
+    * Power transistor (large HBT for PA)
+    Q1 coll base_pa emit_pa VSS npn13G2l m=4
+    
+    * Base bias (class AB, near cutoff)
+    R_bias VDD base_pa 5k
+    C_couple base_pa in_int 200f
+    
+    * Load network (inductive + resonant)
+    L_load VDD coll 150p
+    C_res coll VSS 50f
+    
+    * Output coupling
+    C_out coll OUT 150f
+    
+    * Shunt capacitor (Class-E operation)
+    C_shunt OUT VSS 30f
+
+.ends pa_classE
+
+
+* =============================================================================
+* PA Testbench
+* =============================================================================
+.lib "../vco/netlist/parameters.inc"
+
+* Supplies
+V_vdd vdd 0 2.5
+V_vss vss 0 0
+
+* RF Input (30 GHz, 0 dBm)
+V_in in 0 dc 0 sin(0 0.1 30G)
+
+* PA Instance
+X_pa in out vdd vss pa_classE
+
+* Inline subcircuit definition
+.subckt pa_classE IN OUT VDD VSS
+    L_match in_int IN 200p
+    C_match in_int VSS 100f
+    Q1 coll in_int emit_pa VSS npn13G2l m=4
+    R_bias VDD in_int 5k
+    L_load VDD coll 150p
+    C_res coll VSS 50f
+    C_out coll OUT 150f
+    C_shunt OUT VSS 30f
+    R_emit emit_pa VSS 1
+.ends
+
+* 50 Ohm load
+R_load out vss 50
+
+.control
+    * DC operating point
+    op
+    let pa_dc_power = -v(vdd) * v_vdd#branch
+    print pa_dc_power
+    
+    * Transient
+    tran 0.1n 20n
+    
+    * Measure output power
+    meas tran Vout_pp PP v(out)
+    print Vout_pp
+    
+    quit
+.endc
+.end

@@ -1,0 +1,44 @@
+* Power Amplifier Schematic — Class-E with RFC Load
+* IHP SG13G2 npn13G2, designed for 30 GHz
+* Design equations:
+*   - RFC provides DC path + high RF impedance
+*   - Pout = V^2 / (2*Rload)
+*   - Gain ≈ gm * Rload
+
+.import "../pdk/IHP-Open-PDK/ihp-sg13g2/libs.tech/ngspice/models/cornerHBT.lib" hbt_typ
+
+* Supply
+Vcc_ext vdd 0 2.5
+
+* RFC (RF Choke) — high impedance at RF, DC path
+L_rfc vdd coll 200p
+
+* Power Transistor
+Q1 coll base emit 0 npn13G2 m=4
+
+* Base bias (voltage divider)
+R_bias1 vdd base 3k
+R_bias2 base vss 2k
+
+* Input coupling
+C_in in base 200f
+
+* Emitter degeneration (stability)
+R_emit emit vss 10
+
+* Output coupling
+C_out coll out 150f
+
+* Load
+R_load out vss 50
+
+* Analysis
+.op
+.ac dec 50 20G 40G
+.tran 0.1p 5n
+
+.control
+    run
+    print v(out) v(coll)
+.endc
+.end

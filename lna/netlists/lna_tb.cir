@@ -1,0 +1,38 @@
+* 30 GHz LNA Testbench for IHP SG13G2 (Common Emitter)
+*
+.title 30 GHz LNA Simulation
+
+* Include IHP SG13G2 PDK Models (Mapped relatively to avoid spaces)
+.lib "../../../../junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/ngspice/models/cornerHBT.lib" hbt_typ
+
+* Basic Common Emitter LNA Core
+.subckt lna_core in out vdd vss
+    * Transistor: npn13G2l is the standard high-speed HBT in SG13G2
+    * format: Xname c b e s modelname
+    X1 out in vss vss npn13G2l m=1
+    
+    * Load Resistor (placeholder for inductor)
+    R_load vdd out 100
+.ends
+
+* Bias and Supply
+VDD vdd 0 1.2
+
+* RF Input (Port 1) with DC bias
+V_PORT1 in 0 dc 0.85 ac 1
+
+* DUT Instantiation
+xLNA in out vdd 0 lna_core
+
+.control
+    * Operating Point to verify DC bias
+    op
+    print v(out) v(in)
+    
+    * AC Analysis around 30 GHz
+    ac dec 10 1G 100G
+    
+    * Plot S21-like parameter (Gain)
+    * plot db(v(out)/v(in))
+.endc
+.end

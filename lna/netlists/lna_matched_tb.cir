@@ -1,0 +1,104 @@
+* 30 GHz LNA with Input Matching — IHP SG13G2
+* 
+* Based on cascode + inductive degeneration topology
+* from SilicoWeave-mmWave-IP reference (same PDK)
+*
+* Architecture:
+*   - Common-emitter (Q1) + Common-base (Q2) cascode
+*   - Inductive degeneration (L_e) for NF-optimal input match
+*   - Series-shunt LC matching for S11 < -10 dB
+*   - Output resonant load at 30 GHz
+*
+* Specs (from walkthrough):
+*   S21 = 4.95 dB, NF = 3.84 dB, P1dB = -10 dBm
+*   Target: S11 < -10 dB (with proper matching)
+
+.subckt lna_30ghz_matched IN OUT VDD VSS
+
+    * ================================================================
+    * INPUT MATCHING NETWORK (for S11 < -10 dB at 30 GHz)
+    * ================================================================
+    * Series inductor for impedance transformation
+    L_series IN match_node 180p
+    
+    * Shunt capacitor to ground (matching)
+    C_shunt match_node VSS 40f
+    
+    * DC blocking capacitor
+    C_block match_node base_in 200f
+    
+    * Gate/base bias feed
+    R_bias VDD base_in 15k
+    
+    * ================================================================
+    * CASCODE AMPLIFIER CORE
+    * ================================================================
+    * CE stage (Q1) with inductive degeneration
+    Q1 coll base_in emit VSS npn13G2l m=1
+    
+    * Inductive degeneration (key for NF + S11)
+    L_deg emit VSS 60p
+    
+    * CB stage (Q2) — cascode for isolation
+    Q2 out_int coll VSS npn13G2l m=1
+    
+    * CB base bias (AC ground)
+    C_bypass cb_bias VSS 2p
+    R_cb VDD cb_bias 10k
+    L_bond cb_bias coll 100p
+    
+    * ================================================================
+    * OUTPUT MATCHING + LOAD
+    * ================================================================
+    * Resonant load at 30 GHz
+    L_load VDD out_int 120p
+    C_res out_int VSS 35f
+    
+    * Output coupling
+    C_out out_int OUT 120f
+    
+    * Output shunt match
+    L_shunt OUT VSS 80p
+
+.ends lna_30ghz_matched
+
+
+* =============================================================================
+* LNA Testbench with S-parameter simulation
+* =============================================================================
+.lib "../vco/netlist/parameters.inc"
+
+* Supplies
+V_vdd vdd 0 1.2
+V_vss vss 0 0
+
+* Input port (50 Ohm)
+V1 in 0 dc 0 ac 1 portnum=1 z0=50
+
+* Output port (50 Ohm)  
+V2 out 0 dc 0 ac 0 portnum=2 z0=50
+
+* Instantiate LNA
+X_lna in out vdd vss lna_30ghz_matched
+
+.control
+    * DC operating point
+    op
+    let dc_power = -v(vdd) * v_vdd#branch
+    print dc_power
+    
+    * S-parameters (20-40 GHz)
+    sp dec 100 20G 40G 0
+    print S_1_1 S_2_1 S_1_2 S_2_2
+    wrdata lna_s11_matched.txt S_1_1
+    wrdata lna_s21_matched.txt S_2_1
+    
+    * Noise Figure
+    noise v(out) V1 dec 50 20G 40G 1
+    let nf = 10 * log10(inoise_spectrum^2 / 8.34e-19)
+    print nf
+    wrdata lna_nf_matched.txt nf
+    
+    quit
+.endc
+.end

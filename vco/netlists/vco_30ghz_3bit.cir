@@ -1,0 +1,108 @@
+* 30 GHz VCO — 3-Bit Switched-Capacitor Tuning Bank
+* Expands tuning range from ~1 GHz to ~3 GHz (28-31 GHz target)
+*
+* Architecture: Binary-weighted MIM capacitor bank with 3 control bits
+*   Bit 0: C0 = cap_cmim l=5.5u  w=5.5u  (~45 fF, smallest step)
+*   Bit 1: C1 = cap_cmim l=7.8u  w=7.8u  (~91 fF, 2× Bit 0)
+*   Bit 2: C2 = cap_cmim l=11.0u w=11.0u (~181 fF, 4× Bit 0)
+*
+* Each bit uses a differential NPN switch with VDD/2 pull-up
+* to prevent forward-bias noise injection (Razavi principle).
+
+* Include project parameters
+.include "parameters.inc"
+
+* Process libraries
+.lib "../pdk/IHP-Open-PDK/ihp-sg13g2/libs.tech/ngspice/models/cornerHBT.lib" hbt_typ
+.lib "../pdk/IHP-Open-PDK/ihp-sg13g2/libs.tech/ngspice/models/cornerCAP.lib" cap_typ
+
+* Physical Power Supply
+Vcc_ext pad_vdd 0 {VDD}
+L_bondwire pad_vdd pkg_vdd 0.8n
+C_pad pkg_vdd 0 150f
+R_vdd pkg_vdd vcc_int 0.25
+
+* VDD/2 bias for discrete tuning nodes
+V_half vcc_half 0 {VDD_HALF}
+
+* ===========================================================================
+* INDUCTOR DESIGN (106 pH differential -> 53 pH per leg)
+* ===========================================================================
+.subckt spiral_ind_53ph p1 p2 sub
+L_s p1 n_int 53p
+R_s n_int p2 0.312
+C_sub1 p1 sub 2f
+C_sub2 p2 sub 2f
+.ends spiral_ind_53ph
+
+X_ind1 vcc_int out_x 0 spiral_ind_53ph
+X_ind2 vcc_int out_y 0 spiral_ind_53ph
+
+* ===========================================================================
+* CONTINUOUS TUNING (Varactors — fine tuning within each sub-band)
+* ===========================================================================
+Vcont ctrl 0 0.5
+C_var1 out_x 0 C='40f - 30f * v(ctrl)'
+C_var2 out_y 0 C='40f - 30f * v(ctrl)'
+
+* ===========================================================================
+* BASE CAPACITORS (always connected, sets upper frequency bound)
+* Reduced from 17.11u to 12.5u to allow headroom for the wider cap bank
+* ===========================================================================
+X_cbase_x out_x 0 cap_cmim l=12.5u w=12.5u
+X_cbase_y out_y 0 cap_cmim l=12.5u w=12.5u
+
+* ===========================================================================
+* 3-BIT SWITCHED-CAPACITOR BANK
+* ===========================================================================
+
+* --- Bit 0 (LSB): ~45 fF step ---
+V_d0 d_ctrl_0 0 0.0
+X_csw0_x out_x node_n0 cap_cmim l=5.5u w=5.5u
+X_csw0_y out_y node_m0 cap_cmim l=5.5u w=5.5u
+X_sw0 node_n0 d_ctrl_0 node_m0 0 npn13G2
+R_pu0_n node_n0 vcc_half {R_PULLUP}
+R_pu0_m node_m0 vcc_half {R_PULLUP}
+
+* --- Bit 1: ~91 fF step (2× Bit 0) ---
+V_d1 d_ctrl_1 0 0.0
+X_csw1_x out_x node_n1 cap_cmim l=7.8u w=7.8u
+X_csw1_y out_y node_m1 cap_cmim l=7.8u w=7.8u
+X_sw1 node_n1 d_ctrl_1 node_m1 0 npn13G2
+R_pu1_n node_n1 vcc_half {R_PULLUP}
+R_pu1_m node_m1 vcc_half {R_PULLUP}
+
+* --- Bit 2 (MSB): ~181 fF step (4× Bit 0) ---
+V_d2 d_ctrl_2 0 0.0
+X_csw2_x out_x node_n2 cap_cmim l=11.0u w=11.0u
+X_csw2_y out_y node_m2 cap_cmim l=11.0u w=11.0u
+X_sw2 node_n2 d_ctrl_2 node_m2 0 npn13G2
+R_pu2_n node_n2 vcc_half {R_PULLUP}
+R_pu2_m node_m2 vcc_half {R_PULLUP}
+
+* ===========================================================================
+* CORE OSCILLATOR (Cross-coupled NPN pair, m=4)
+* ===========================================================================
+X1 out_x out_y tail 0 npn13G2 m=4
+X2 out_y out_x tail 0 npn13G2 m=4
+
+* ===========================================================================
+* TAIL CURRENT SOURCE (Mirror Ratio 2.5)
+* ===========================================================================
+I_ref vcc_int ref_node {IREF}
+X_mref ref_node ref_node 0 0 npn13G2 m={MREF}
+X_mtail tail ref_node 0 0 npn13G2 m={MT}
+
+* ===========================================================================
+* SELF-BIASED COMMON-EMITTER BUFFERS
+* ===========================================================================
+C_ac_x out_x inv_in_x {C_AC_COUPLING}
+C_ac_y out_y inv_in_y {C_AC_COUPLING}
+
+X_inv_n1 inv_out_x inv_in_x 0 0 npn13G2
+R_load_x vcc_int inv_out_x {R_LOAD}
+R_fb_x inv_out_x inv_in_x {R_FB}
+
+X_inv_n2 inv_out_y inv_in_y 0 0 npn13G2
+R_load_y vcc_int inv_out_y {R_LOAD}
+R_fb_y inv_out_y inv_in_y {R_FB}

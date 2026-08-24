@@ -1,0 +1,140 @@
+* 30 GHz Radar Analog Front-End — Top-Level Testbench
+* Chain: VCO → PA → (Antenna/Channel) → LNA → Mixer → IF → ADC
+*
+* This testbench validates the complete RF signal path
+* before digital DSP processing.
+
+.lib "../vco/netlist/parameters.inc"
+
+* =============================================================================
+* SUPPLIES
+* =============================================================================
+V_vdd_1p2 vdd_1p2 0 1.2
+V_vdd_2p5 vdd_2p5 0 2.5
+V_vss vss 0 0
+
+* =============================================================================
+* VCO (30 GHz LO)
+* =============================================================================
+* VCO outputs: lo_p, lo_n (differential 30 GHz)
+X_vco lo_p lo_n vdd_1p2 vss vco_30ghz_core
+
+.subckt vco_30ghz_core out_p out_n vdd vss
+    * Simplified VCO model: 30 GHz sinusoidal source
+    * In full simulation, this is replaced by the transistor-level netlist
+    V_osc_p out_p vss dc 0 sin(0 0.5 30G 0 0)
+    V_osc_n out_n vss dc 0 sin(0 -0.5 30G 0 0)
+.ends
+
+* =============================================================================
+* PA (Power Amplifier) — drives TX antenna
+* =============================================================================
+X_pa lo_p tx_out vdd_2p5 vss pa_classE
+
+.subckt pa_classE IN OUT VDD VSS
+    L_match in_int IN 200p
+    C_match in_int VSS 100f
+    Q1 coll in_int emit_pa VSS npn13G2l m=4
+    R_bias VDD in_int 5k
+    L_load VDD coll 150p
+    C_res coll VSS 50f
+    C_out coll OUT 150f
+    C_shunt OUT VSS 30f
+    R_emit emit_pa VSS 1
+.ends
+
+* =============================================================================
+* TX/RX CHANNEL (FMCW radar round-trip delay)
+* =============================================================================
+* Simulate target at 50m: delay = 2*50m/c = 333ps
+* Attenuation: free-space path loss at 30 GHz for 50m ≈ -100 dB
+* For simulation, we use a simplified delay + attenuation
+
+* TX signal → delay → attenuated → RX
+* Using transmission line for delay + resistor for attenuation
+T_channel tx_out 0 rx_in 0 Z0=50 TD=333p
+R_atten rx_in vss 50
+
+* Weak RX signal (simulating reflected signal)
+V_rx rx_in vss dc 0 sin(0 0.001 30G 0 0)
+
+* =============================================================================
+* LNA (Low Noise Amplifier)
+* =============================================================================
+X_lna rx_in lna_out vdd_1p2 vss lna_core
+
+.subckt lna_core in out vdd vss
+    X1 c b e vss npn13G2l m=1
+    R_bias vdd b 20k
+    C_in in b 200f
+    L_e e vss 50p
+    L_load vdd c 150p
+    C_out c out 150f
+.ends
+
+* =============================================================================
+* MIXER (Gilbert Cell) — downconvert RF to IF
+* =============================================================================
+* LO from VCO, RF from LNA, IF output
+X_mix lna_out vss lo_p lo_n if_p if_n vdd_1p2 vss mixer_gilbert
+
+.subckt mixer_gilbert RF_p RF_n LO_p LO_n IF_p IF_n VDD VSS
+    Q1 c1 RF_p e_tail VSS npn13G2l m=1
+    Q2 c2 RF_n e_tail VSS npn13G2l m=1
+    Q3 c3 LO_p c1 VSS npn13G2l m=1
+    Q4 c4 LO_p c2 VSS npn13G2l m=1
+    Q5 c3 LO_n c2 VSS npn13G2l m=1
+    Q6 c4 LO_n c1 VSS npn13G2l m=1
+    R_load_p VDD IF_p 200
+    R_load_n VDD IF_n 200
+    V_if_p IF_p c3 0
+    V_if_n IF_n c4 0
+    I_tail e_tail VSS 2m
+.ends
+
+* =============================================================================
+* IF STAGE + ADC
+* =============================================================================
+* IF frequency = 30 GHz - 30 GHz = DC (for stationary target)
+* For moving target: IF = Doppler shift (Hz to kHz range)
+* For range: IF = beat frequency (MHz range)
+
+* IF amplifier
+R_if_load if_p vss 200
+
+* Connect to ADC behavioral model
+X_adc if_p clk adc_out_0 adc_out_1 adc_out_2 adc_out_3 adc_out_4 adc_out_5 adc_out_6 adc_out_7 vref_p vref_n vdd_1p2 vss adc_sar_behavioral
+
+.subckt adc_sar_behavioral in clk out_0 out_1 out_2 out_3 out_4 out_5 out_6 out_7 vref_p vref_n vdd vss
+    E_quantize out_analog vss vol='floor((v(in))/(v(vref_p)) * 255) / 255 * (v(vref_p))'
+.ends
+
+* Clock for ADC (100 MHz sampling)
+V_clk clk 0 pulse(0 1.2 0 0.1n 0.1n 4.9n 10n)
+
+* ADC reference voltages
+V_ref_p vref_p 0 1.0
+V_ref_n vref_n 0 0
+
+* =============================================================================
+* SIMULATION
+* =============================================================================
+.control
+    * Operating point
+    op
+    print v(tx_out) v(lna_out) v(if_p)
+    
+    * Transient to observe mixing
+    tran 0.1n 100n
+    
+    * FFT of IF output to verify beat frequency
+    fft v(if_p)
+    
+    * Measure IF frequency
+    meas tran IF_max MAX v(if_p)
+    meas tran IF_min MIN v(if_p)
+    print IF_max IF_min
+    
+    quit
+.endc
+.end

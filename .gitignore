@@ -1,0 +1,18 @@
+# Simulation output logs
+*.log
+
+# LaTeX auxiliary files
+*.aux
+*.out
+*.toc
+*.lof
+*.lot
+*.nav
+*.snm
+*.vrb
+*.bbl
+*.blg
+
+# OS
+.DS_Store
+Thumbs.db

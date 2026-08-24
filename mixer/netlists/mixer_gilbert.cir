@@ -1,0 +1,61 @@
+* 30 GHz Gilbert Cell Mixer — IHP SG13G2
+* Double-balanced mixer using npn13G2l HBTs
+*
+* Architecture:
+*   - RF input: differential pair Q1-Q2 (bottom tier)
+*   - LO input: switching pair Q3-Q4-Q5 (top tier)
+*   - IF output: taken from collectors of Q3/Q4
+*   - Current source: tail current for RF pair
+*
+* Ports:
+*   RF_p, RF_n  : differential RF input (from LNA)
+*   LO_p, LO_n  : differential LO input (from VCO)
+*   IF_p, IF_n  : differential IF output (to ADC)
+*   VDD, VSS    : supply
+
+.subckt mixer_gilbert RF_p RF_n LO_p LO_n IF_p IF_n VDD VSS
+
+    * RF Input Differential Pair (Bottom Tier)
+    E1 RF_p 0 1 0 1
+    Q1 c1 b_e1 e_tail VSS npn13G2l m=1
+    Q2 c2 b_e2 e_tail VSS npn13G2l m=1
+    
+    * Base-emitter capacitance for RF input
+    C_be1 RF_p b_e1 50f
+    C_be2 RF_n b_e2 50f
+    
+    * RF bias
+    R_bias_rf VDD RF_p 10k
+    R_bias_rf2 VDD RF_n 10k
+    
+    * LO Switching Quad (Top Tier)
+    Q3 c3 b_lo_p e1 VSS npn13G2l m=1
+    Q4 c4 b_lo_p e2 VSS npn13G2l m=1
+    Q5 c3 b_lo_n e2 VSS npn13G2l m=1
+    Q6 c4 b_lo_n e1 VSS npn13G2l m=1
+    
+    * LO coupling capacitors
+    C_lo1 LO_p b_lo_p 100f
+    C_lo2 LO_n b_lo_n 100f
+    
+    * Load resistors (IF output)
+    R_load_p VDD IF_p 200
+    R_load_n VDD IF_n 200
+    
+    * Connect switching outputs to loads
+    V_if_p IF_p c3 0
+    V_if_n IF_n c4 0
+    
+    * Tail current source (2 mA)
+    I_tail e_tail VSS 2m
+    
+    * Bypass capacitor
+    C_bypass e_tail VSS 5p
+
+.ends mixer_gilbert
+
+
+* =============================================================================
+* Simplified Mixer Testbench (for initial validation)
+* =============================================================================
+* This is a subcircuit definition only — see mixer_tb.cir for testbench

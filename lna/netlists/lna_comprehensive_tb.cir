@@ -1,0 +1,56 @@
+* Comprehensive 30 GHz LNA RF Testbench (IHP SG13G2)
+.lib "../../../../junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/ngspice/models/cornerHBT.lib" hbt_typ
+
+* Basic Common Emitter LNA Core
+.subckt lna_core in out vdd vss
+    * IHP SG13G2 NPN HBT
+    X1 c b e vss npn13G2l m=1
+    
+    * Bias Network
+    R_bias vdd b 20k
+    
+    * Input Matching
+    C_in in b 200f
+    L_in in vss 200p
+    
+    * Emitter Degeneration
+    L_e e vss 50pH
+    
+    * Load matching
+    L_load vdd c 150pH
+    C_out c out 150f
+.ends
+
+* Supply
+V_vdd vdd 0 1.2
+V_vss vss 0 0
+
+* Input and Output Ports (50 Ohms)
+V1 in 0 dc 0 ac 1 portnum=1 z0=50
+V2 out 0 dc 0 ac 0 portnum=2 z0=50
+
+* Instantiate LNA
+X_lna in out vdd vss lna_core
+
+.control
+    * 1. DC Power
+    op
+    let dc_power = -v(vdd) * v_vdd#branch
+    print dc_power
+    
+    * 2. S-Parameters
+    sp dec 50 20G 40G 0
+    setplot sp1
+    print S_1_1 S_2_1 S_1_2 S_2_2
+    wrdata s_params.txt S_1_1 S_2_1 S_1_2 S_2_2
+    
+    * 3. Noise Figure
+    noise v(out) V1 dec 10 20G 40G 1
+    setplot noise1
+    let nf_db = 10 * log10(inoise_spectrum^2 / 8e-19)
+    print nf_db
+    wrdata nf_results.txt nf_db
+    
+    quit
+.endc
+.end

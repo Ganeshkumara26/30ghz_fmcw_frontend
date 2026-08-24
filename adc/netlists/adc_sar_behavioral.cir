@@ -1,0 +1,24 @@
+* Behavioral SAR ADC Model for Mixed-Signal System Simulation
+* 
+* Simulates an N-bit SAR ADC using ideal comparators, DAC, and logic.
+* In a real run, this would be replaced with the transistor-level netlist.
+
+.subckt adc_sar_behavioral in clk out_0 out_1 out_2 out_3 out_4 out_5 out_6 out_7 vref_p vref_n vdd vss
+    * Ideal sampling switch
+    S_sample in sample_hold clk vss my_switch
+    C_hold sample_hold vss 1p
+
+    * The internal logic of the SAR is usually too complex for pure SPICE 
+    * without A-to-D bridges or Verilog-A. 
+    * For this placeholder, we use a simple behavioral controlled source 
+    * that acts as a quantizer (staircase function).
+    
+    E_quantize out_analog vss vol='floor((v(sample_hold)-v(vref_n)) / (v(vref_p)-v(vref_n)) * 255) / 255 * (v(vref_p)-v(vref_n)) + v(vref_n)'
+    
+    * Convert to bits (Ideal ADCs)
+    * In Xyce or Ngspice with XSPICE, we would use an adc_bridge.
+    A1 out_analog [out_0 out_1 out_2 out_3 out_4 out_5 out_6 out_7] my_adc
+    
+    .model my_switch sw vt=0.6 vh=0.1 ron=10 roff=1G
+    * .model my_adc adc_bridge(in_low=0.1 in_high=1.1)
+.ends

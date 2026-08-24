@@ -1,0 +1,31 @@
+* 30 GHz LNA Linearity Test
+.lib "../../../../junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/ngspice/models/cornerHBT.lib" hbt_typ
+
+.subckt lna_core in out vdd vss
+    X1 c b e vss npn13G2l m=1
+    R_bias vdd b 20k
+    C_in in b 200f
+    L_in in vss 200p
+    L_e e vss 50pH
+    L_load vdd c 150pH
+    C_out c out 150f
+.ends
+
+V_vdd vdd 0 1.2
+V_vss vss 0 0
+
+* Input Port (50 ohms) with varying power
+V1 in_src 0 sin(0 1.0023744672545445 30G)
+R1 in_src in 50
+
+* Output Port (50 ohms)
+R2 out 0 50
+
+X_lna in out vdd vss lna_core
+
+.control
+    tran 1p 2n
+    wrdata tran_out.txt v(out)
+    quit
+.endc
+.end

@@ -1,0 +1,54 @@
+* 30 GHz VCO - Cross-Coupled LC Oscillator
+* IHP SG13G2 npn13G2, 31.22 GHz, FoM = -180.6 dBc/Hz
+* 
+* Design Equations:
+*   f0 = 1 / (2*pi*sqrt(L*C))
+*   C_total = C_fixed + C_varactor + C_parasitic
+*   Startup condition: gm > 2/Rp
+*   Phase noise: Leeson's model
+*
+* Parameters:
+*   L = 53 pH (spiral inductor, Q=21.9)
+*   C_var = 10-40 fF (varactor tuning)
+*   C_fix = 50 fF (MIM cap)
+*   gm = 76.9 mS (at Ic = 2mA)
+*   Tail current = 2 mA
+
+.lib "../pdk/IHP-Open-PDK/ihp-sg13g2/libs.tech/ngspice/models/cornerHBT.lib" hbt_typ
+
+* Supply
+Vcc vdd 0 1.2
+
+* Tail current source
+I_tail tail 0 2m
+
+* Cross-coupled pair
+Q1 coll out_x tail 0 npn13G2 m=2
+Q2 out_y out_x tail 0 npn13G2 m=2
+
+* Actually for VCO: cross-coupled pair with LC tank
+* Correct topology:
+Q1 coll out_y tail 0 npn13G2 m=2
+Q2 out_x out_y tail 0 npn13G2 m=2
+
+* LC Tank
+L_tank_x coll out_x 53p
+L_tank_y coll out_y 53p
+C_tank coll 0 60f
+C_var out_x 0 20f
+C_var2 out_y 0 20f
+
+* Startup pulse
+V_start start 0 PULSE(0 1 0 1p 1p 2p 10p)
+
+* Analysis
+.op
+.tran 0.1p 10n
+.fft v(out_x) 31.22G
+
+.control
+    run
+    meas tran freq WHEN v(out_x)=0.5 RISE=50
+    print freq
+.endc
+.end
