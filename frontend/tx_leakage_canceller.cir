@@ -1,0 +1,26 @@
+* Active TX Leakage Canceller (Variable Gain Inverting Attenuator)
+* IHP SG13G2 PDK
+
+.subckt tx_leakage_canceller IN OUT_ATTEN V_CTRL VDD VSS
+    * AC coupling from PA output
+    C_in IN base 500f
+    
+    * DC Bias controlled by V_CTRL to tune gain (gm)
+    R_bias V_CTRL base 5k
+    R_bias_gnd base VSS 10k
+    
+    * Common Emitter (Provides exactly 180 degrees phase shift)
+    X_amp OUT base emit VSS npn13G2l m=2
+    R_emit emit VSS 20
+    
+    * Collector Load
+    R_load VDD OUT 200
+    
+    * AC Coupling to Output
+    C_out OUT out_ac_internal 500f
+    
+    * Output Attenuator Network (~ -40dB)
+    * We use this to scale down to the leakage level (0.01x)
+    R_div1 out_ac_internal OUT_ATTEN 2k
+    R_div2 OUT_ATTEN VSS 50
+.ends tx_leakage_canceller

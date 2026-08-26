@@ -1,0 +1,3 @@
+22-Aug-2026 00:14:49 | INFO    | KLayout version detected: 0.30.10
+22-Aug-2026 00:14:50 | INFO    | Using DRC JSON file: /mnt/d/Desktop/Vault/03 Projects/junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/klayout/python/sg13g2_pycell_lib/sg13g2_tech_mod.json
+22-Aug-2026 00:14:50 | INFO    | Running IHP-SG13G2 main checks on design /mnt/d/Desktop/Vault/03 Projects/Ganesh's projects/30GHz-CrossLayer-Radar/analog_rf/lna/layout/lna_matching.gds, topcell: LNA_MATCHING

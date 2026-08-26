@@ -1,0 +1,132 @@
+* RX Chain Isolated Testbench
+.lib "/mnt/d/Desktop/Vault/03 Projects/junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/ngspice/models/cornerHBT.lib" hbt_typ
+.lib "/mnt/d/Desktop/Vault/03 Projects/junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/ngspice/models/cornerCAP.lib" cap_typ
+.lib "/mnt/d/Desktop/Vault/03 Projects/junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/ngspice/models/cornerRES.lib" res_typ
+
+.options method=gear reltol=1e-3
+
+Vdd_1p2 vdd_1p2 0 1.2
+Vdd_2p5 vdd_2p5 0 2.5
+Vss vss 0 0
+
+* =============================================================================
+* IMPORT SUBCIRCUITS
+* =============================================================================
+* LNA
+.subckt lna_30ghz_matched IN OUT VDD VSS
+    L_series IN match_node 180p
+    C_shunt match_node VSS 40f
+    C_block match_node base_in 200f
+    R_bias VDD base_in 15k
+    X1 coll base_in emit VSS npn13G2l m=1
+    L_deg emit VSS 60p
+    X2 out_int cb_bias coll VSS npn13G2l m=1
+    C_bypass cb_bias VSS 2p
+    R_cb VDD cb_bias 10k
+    * BUG FIX: L_bond previously shorted cb_bias to coll (Base-Emitter short), turning off X2!
+    * L_bond cb_bias coll 100p
+    L_load VDD out_int 120p
+    C_res out_int VSS 35f
+    C_out out_int OUT 120f
+.ends lna_30ghz_matched
+
+* Balun
+.subckt balun_transformer in p n bias vdd vss
+    L_pri in pri_int 80p
+    R_pri_loss pri_int vss 0.1
+    L_sec1 p bias 80p
+    L_sec2 bias n 80p
+    K1 L_pri L_sec1 0.7
+    K2 L_pri L_sec2 0.7
+    K3 L_sec1 L_sec2 0.95
+.ends balun_transformer
+
+* Mixer
+.subckt mixer_gilbert RF_p RF_n LO_p LO_n IF_p IF_n VDD VSS
+    X1 c1 b_e1 e_tail VSS npn13G2l m=1
+    X2 c2 b_e2 e_tail VSS npn13G2l m=1
+    C_be1 RF_p b_e1 50f
+    C_be2 RF_n b_e2 50f
+    R_bias_rf1 VDD b_e1 18k
+    R_bias_rf2 b_e1 VSS 10k
+    R_bias_rf3 VDD b_e2 18k
+    R_bias_rf4 b_e2 VSS 10k
+    X3 c3 b_lo_p c1 VSS npn13G2l m=1
+    X4 c4 b_lo_p c2 VSS npn13G2l m=1
+    X5 c3 b_lo_n c2 VSS npn13G2l m=1
+    X6 c4 b_lo_n c1 VSS npn13G2l m=1
+    C_lo1 LO_p b_lo_p 100f
+    C_lo2 LO_n b_lo_n 100f
+    R_bias_lo1 VDD b_lo_p 10k
+    R_bias_lo2 b_lo_p VSS 20k
+    R_bias_lo3 VDD b_lo_n 10k
+    R_bias_lo4 b_lo_n VSS 20k
+    R_load_p VDD IF_p 600
+    R_load_n VDD IF_n 600
+    V_if_p IF_p c3 0
+    V_if_n IF_n c4 0
+    I_tail e_tail VSS 2m
+    C_bypass e_tail VSS 5p
+.ends mixer_gilbert
+
+* IF Amp
+.subckt if_2stage IN OUT VDD VSS
+    C_couple1 IN b1 10n
+    R_b1_1 VDD b1 15k
+    R_b1_2 b1 VSS 10k
+    X1 c1 b1 e1 VSS npn13G2l m=2
+    R_load1 VDD c1 390
+    R_e1 e1 VSS 75
+    C_couple2 c1 b2 10n
+    R_b2_1 VDD b2 15k
+    R_b2_2 b2 VSS 10k
+    X2 c2 b2 e2 VSS npn13G2l m=2
+    R_load2 VDD c2 390
+    R_e2 e2 VSS 75
+    C_out c2 OUT 10n
+.ends if_2stage
+
+* =============================================================================
+* INTEGRATION
+* =============================================================================
+* RF Input (30.001 GHz) -> IF = 1 MHz. (Reduced to 100uV to prevent IF Amp clipping)
+V_rf rx_in vss sin(0 0.0001 30.001G 0 0)
+
+* LNA
+X_lna rx_in lna_out vdd_1p2 vss lna_30ghz_matched
+
+* Balun
+R_balun_b1 vdd_1p2 mix_bias 10k
+R_balun_b2 mix_bias vss 10k
+C_balun_b mix_bias vss 1p
+X_balun lna_out mix_rf_p mix_rf_n mix_bias vdd_1p2 vss balun_transformer
+
+* Ideal LO Drive (30 GHz)
+V_lo_diff lo_diff 0 sin(0 0.8 30G)
+E_lo_p vco_out_p 0 vol='1.65 + 0.5*v(lo_diff)'
+E_lo_n vco_out_n 0 vol='1.65 - 0.5*v(lo_diff)'
+
+* Mixer
+X_mix mix_rf_p mix_rf_n vco_out_p vco_out_n if_p if_n vdd_2p5 vss mixer_gilbert
+
+* IF Filter (to remove 30 GHz LO feedthrough and expose pure 1 MHz IF)
+C_if_filter_p if_p vss 5p
+C_if_filter_n if_n vss 5p
+
+* IF Amp
+X_if_amp if_p if_amp_out vdd_2p5 vss if_2stage
+
+* ADC Load
+R_adc_load if_amp_out vss 1Meg
+
+* =============================================================================
+* ANALYSIS
+* =============================================================================
+.control
+    tran 10p 2u
+    meas tran lna_vpp PP v(lna_out) from=1u to=2u
+    meas tran if_mix_vpp PP v(if_p) from=1u to=2u
+    meas tran if_amp_out_vpp PP v(if_amp_out) from=1u to=2u
+    quit
+.endc
+.end

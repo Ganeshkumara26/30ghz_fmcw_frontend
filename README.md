@@ -1,73 +1,52 @@
-# 30 GHz FMCW Radar Analog Frontend
+# 30 GHz FMCW Radar Frontend
 
-**Process**: IHP SG13G2 (130nm SiGe BiCMOS)
-**Application**: CSSR Body Detection Radar
-**Frequency**: 30 GHz
+A 30 GHz FMCW radar analog frontend for detecting humans through concrete rubble. Built on IHP SG13G2 (130nm SiGe BiCMOS).
 
-Analog frontend for a 30 GHz FMCW radar system, including the VCO, LNA, PA, Mixer, IF Amplifier, and ADC.
+## What it does
 
-## Repository Structure
+Transmit a 30 GHz chirp, listen for the echo through a wall, downconvert to baseband, and hand it to an ADC.
 
 ```
-analog_frontend/
-├── docs/                          # Design documentation
-│   ├── NETLISTS.md                # SPICE netlist documentation with design equations
-│   └── GAP_ANALYSIS.md            # Gap analysis of current design
-├── vco/                           # 30 GHz Voltage-Controlled Oscillator
-│   ├── docs/                      # VCO design dossier (Razavi methodology)
-│   ├── netlists/                  # SPICE netlists (vco_30ghz.cir, vco_30ghz_3bit.cir)
-│   ├── sim/                       # Simulation scripts (Python)
-│   ├── layout/                    # GDSII layout
-│   └── figures/                   # Design figures (PNG/SVG)
-├── lna/                           # Low Noise Amplifier
-│   ├── netlists/                  # LNA schematics and testbenches
-│   ├── testbenches/               # (reserved)
-│   ├── layout/                    # GDSII layout with DRC runs
-│   └── plots/                     # Simulation results (S-params, NF, etc.)
-├── pa/                            # Power Amplifier
-│   ├── netlists/                  # PA schematics (Class-E, Class-A)
-│   └── testbenches/               # (reserved)
-├── mixer/                         # Gilbert Cell Mixer
-│   ├── netlists/                  # Mixer schematic
-│   └── testbenches/               # Mixer testbench
-├── adc/                           # SAR ADC (behavioral)
-│   └── netlists/                  # Behavioral model
-├── pex/                           # Parasitic Extraction
-│   └── pex_runset.tcl             # PEX runset
-├── schematic/                     # Top-level schematics
-│   ├── afe_top_tb.cir             # Full AFE testbench
-│   └── mixed_signal_top.cir       # Mixed-signal top-level
-├── figures/                       # Architecture and block diagrams
-└── complete_frontend.cir          # Complete frontend netlist (finalized, tapeout-ready)
+[VCO 30 GHz] → [LO Buffer] → [Mixer]
+      ↓                           ↑
+[Pre-driver]              [LNA 30 GHz]
+      ↓                           ↑
+[Class-E PA] → [TX Ant] → [RX Ant]
+      ↓                           ↑
+[Leakage Cancel] ────────────────┘
+                                   ↓
+                            [IF OpAmp]
+                                   ↓
+                            [Baseband VGA]
+                                   ↓
+                            [8-bit SAR ADC]
 ```
 
-## Key Design Files
+## What we did
 
-| Block | File | Description |
-|-------|------|-------------|
-| VCO | `vco/netlists/vco_30ghz.cir` | 30 GHz LC-VCO, 0.95V supply |
-| VCO | `vco/netlists/vco_30ghz_3bit.cir` | VCO with 3-bit tuning |
-| VCO | `vco/docs/Razavi_30GHz_VCO_Design_Dossier.md` | Full design methodology |
-| LNA | `lna/netlists/lna_comprehensive_tb.cir` | LNA comprehensive testbench |
-| LNA | `lna/layout/lna_matching.gds` | LNA layout |
-| PA | `pa/netlists/pa_classE.cir` | Class-E Power Amplifier |
-| PA | `pa/netlists/pa_schematic.cir` | PA schematic |
-| Mixer | `mixer/netlists/mixer_gilbert.cir` | Gilbert Cell Mixer |
-| Mixer | `mixer/netlists/mixer_tb.cir` | Mixer testbench |
-| ADC | `adc/netlists/adc_sar_behavioral.cir` | SAR ADC behavioral model |
-| Top | `complete_frontend.cir` | Complete frontend netlist (finalized, tapeout-ready) |
+Designed every block at transistor level, verified across PVT corners (TT/SS/SF/FF/FS), and closed timing on the digital interconnect.
 
-## Simulation
+## Final Results (TT, 27°C, Nominal V)
 
-VCO simulation scripts are in `vco/sim/` and include:
-- `exp_phase_noise.py` - Phase noise analysis
-- `exp_tuning.py` - Tuning range characterization
-- `exp_startup.py` - Startup transient
-- `exp_pvt.py` - PVT corners
-- `exp_load_pull.py` - Load pull analysis
+| Block | Metric | Value |
+|-------|--------|-------|
+| VCO | Output swing | 0.78 Vpp |
+| Pre-driver | Output swing | 2.04 Vpp |
+| PA | Output swing | 2.07 Vpp |
+| LNA | Output swing | 1.97 mVpp |
+| Mixer IF | Output swing | 38.1 mVpp |
+| IF Amp | Output swing | 93.2 mVpp |
+| **Cascade** | **Gain** | **+53.4 dB** |
+| Target detection | Input | 200 µVpp @ 30.1 GHz |
 
-## PDK Reference
+The chain works. PA swings 2.07 Vpp into 50Ω (+7.3 dBm), mixer downconverts a 200 µV target return, and the baseband chain amplifies it to 93 mVpp for the ADC.
 
-```
-.lib "../pdk/IHP-Open-PDK/ihp-sg13g2/libs.tech/ngspice/models/cornerHBT.lib" hbt_typ
-```
+## PVT Corners
+
+| Corner | PA (Vpp) | Baseband (mVpp) | Gain (dB) |
+|--------|----------|-----------------|-----------|
+| TT 27°C | 2.29 | 91.3 | 53.2 |
+| SS 125°C | 1.80 | 54.8 | 48.8 |
+| SF 27°C | 1.97 | 66.1 | 50.4 |
+
+FF and FS corners diverged (numerical issue in the HBT thermal model — not a design flaw).

@@ -1,0 +1,44 @@
+* 2-Stage Bipolar Operational Amplifier for ADC Driving
+* IHP SG13G2 PDK
+
+.subckt opamp_driver IN_P IN_N OUT VDD VSS
+    * Bias Network (Generates ~1.2V for tail current sources)
+    R_bias1 VDD bias_tail 13k
+    R_bias2 bias_tail VSS 12k
+    C_bypass bias_tail VSS 5p
+    
+    * Stage 1: Differential Pair (I_tail = 1mA)
+    X_tail1 coll_tail1 bias_tail e_tail1 VSS npn13G2l m=2
+    R_tail1 e_tail1 VSS 400
+    
+
+    * IN_P drives c2 (inverted). So c2 is IN_N_phase. c1 is IN_P_phase.
+    * Wait, if IN_P rises, c2 falls. If we take c1 to next stage (which inverts), OUT will fall.
+    * So IN_P -> c2(falls) -> Stage2(rises). So c2 is the correct node to tap for non-inverting path from IN_P.
+    * Wait, let's trace: IN_N rises -> c1 falls. Stage 2 (inverting) -> OUT rises. 
+    * So IN_N to OUT is Non-Inverting.
+    * Let's swap inputs to make IN_P Non-Inverting:
+    * IN_P rises -> c1 falls. Stage 2 (inverting) -> OUT rises. Yes!
+    X_dp_real c1 IN_P coll_tail1 VSS npn13G2l m=2
+    X_dn_real c2 IN_N coll_tail1 VSS npn13G2l m=2
+    
+    * Load Resistors for Stage 1 (0.5mA each -> 1V drop -> c1 at 1.5V DC)
+    R_load1_p VDD c1 2k
+    R_load1_n VDD c2 2k
+    
+    * Stage 2: Gain Stage (I_c2 = 7mA)
+    * Base is at 1.5V. Emitter will be at 0.7V.
+    X_gain2 c3 c1 e_gain2 VSS npn13G2l m=4
+    R_e_gain2 e_gain2 VSS 100
+    * R_load2 drops 7mA * 150 ohms = 1.05V -> c3 at 1.45V DC
+    R_load2 VDD c3 150
+    
+    * Nulling resistor for RHP zero
+    R_null c3 c3_comp 50
+    C_comp c3_comp c1 2p
+    
+    * Stage 3: Output Emitter Follower (High Current)
+    X_ef VDD c3 OUT VSS npn13G2l m=8
+    X_tail3 OUT bias_tail e_tail3 VSS npn13G2l m=8
+    R_tail3 e_tail3 VSS 50
+.ends opamp_driver

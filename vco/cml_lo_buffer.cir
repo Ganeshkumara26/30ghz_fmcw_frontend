@@ -1,0 +1,27 @@
+* CML LO Buffer (Current Mode Logic) for 30GHz Reverse Isolation
+* IHP SG13G2 PDK
+
+.subckt cml_buffer IN_P IN_N OUT_P OUT_N VDD VSS
+    * Tail Current Source (~4mA) with degeneration for stability
+    X_tail e_tail bias_tail emit_tail VSS npn13G2l m=2
+    R_tail_deg emit_tail VSS 20
+    C_bypass_tail bias_tail VSS 5p
+    R_bias VDD bias_tail 8k
+    R_bias_gnd bias_tail VSS 20k
+    
+    * Input AC Coupling and Bias (biased to 1.0V for optimal CML switching)
+    C_in_p IN_P base_dp 100f
+    C_in_n IN_N base_dn 100f
+    R_bias_in_p VDD base_dp 10k
+    R_bias_in_gnd_p base_dp VSS 50k
+    R_bias_in_n VDD base_dn 10k
+    R_bias_in_gnd_n base_dn VSS 50k
+    
+    * Differential Pair
+    X_dp OUT_P base_dp e_tail VSS npn13G2l m=2
+    X_dn OUT_N base_dn e_tail VSS npn13G2l m=2
+    
+    * Load Resistors (low value for high bandwidth RC pole)
+    R_load_p VDD OUT_P 150
+    R_load_n VDD OUT_N 150
+.ends cml_buffer

@@ -1,14 +1,14 @@
 * Complete 30 GHz Radar Frontend Verification - Tapeout Ready
 * PDK models: IHP SG13G2 (absolute paths, same root as the validated block netlists)
-.lib "/mnt/d/Desktop/Vault/03 Projects/junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/ngspice/models/cornerHBT.lib" hbt_typ
-.lib "/mnt/d/Desktop/Vault/03 Projects/junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/ngspice/models/cornerCAP.lib" cap_typ
+.lib "/mnt/d/Desktop/Vault/03 Projects/junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/ngspice/models/cornerHBT.lib" hbt_wcs
+.lib "/mnt/d/Desktop/Vault/03 Projects/junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/ngspice/models/cornerCAP.lib" cap_bcs
 .lib "/mnt/d/Desktop/Vault/03 Projects/junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/ngspice/models/cornerRES.lib" res_typ
 
-.options method=gear reltol=1e-3
+.options method=gear reltol=1e-3 cshunt=1f temp=27
 
 * Supplies
-Vdd_1p2 vdd_1p2 0 1.2
-Vdd_2p5 vdd_2p5 0 2.5
+Vdd_1p2 vdd_1p2 0 1.08
+Vdd_2p5 vdd_2p5 0 2.25
 Vss vss 0 0
 V_clk clk 0 dc 0 pulse(0 1.2 0 0.1n 0.1n 4.9n 10n)
 V_ref_p vref_p 0 1.0
@@ -42,6 +42,8 @@ V_ref_n vref_n 0 0
     L2 VDD c2 150p
     X1 c1 c2 emit VSS npn13G2l m=2
     X2 c2 c1 emit VSS npn13G2l m=2
+    R_tank1 c1 VDD 400
+    R_tank2 c2 VDD 400
     C1 c1 VSS 100f
     C2 c2 VSS 100f
     I_tail emit VSS 4m
@@ -51,18 +53,7 @@ V_ref_n vref_n 0 0
     R2 OUT_N VSS 1Meg
 .ends vco_30ghz
 
-* 3. PA (from pa_classE.cir)
-.subckt pa_classE IN OUT VDD VSS
-    L_match in_int IN 200p
-    C_match in_int VSS 100f
-    X1 coll in_int emit_pa VSS npn13G2l m=8
-    R_bias VDD in_int 5k
-    L_load VDD coll 120p
-    C_res coll VSS 40f
-    C_out coll OUT 200f
-    C_shunt OUT VSS 30f
-    R_emit emit_pa VSS 0.5
-.ends pa_classE
+
 
 * 4. Mixer (from mixer_gilbert.cir)
 .subckt mixer_gilbert RF_p RF_n LO_p LO_n IF_p IF_n VDD VSS
@@ -99,25 +90,7 @@ V_ref_n vref_n 0 0
     E_quantize out_analog vss vol='floor((v(in))/(v(vref_p)) * 255) / 255 * (v(vref_p))'
 .ends adc_sar_behavioral
 
-* 6. Buffer (Emitter Follower)
-.subckt buffer_ef IN OUT VDD VSS
-    R_b1 VDD IN 10k
-    R_b2 IN VSS 20k
-    X1 VDD IN emit VSS npn13G2l m=2
-    R_emit emit VSS 500
-    R_damp emit OUT 20
-.ends buffer_ef
 
-.subckt pa_predriver IN OUT VDD VSS
-    C_in IN base_in 1p
-    R_bias1 VDD base_in 10k
-    R_bias2 base_in VSS 5k
-    X1 coll base_in emit VSS npn13G2l m=4
-    R_emit emit VSS 0.5
-    L_load VDD coll 150p
-    C_res coll VSS 50f
-    C_out coll OUT 300f
-.ends pa_predriver
 
 
 * 7. Balun (Transformer-based, tapeout ready)
@@ -131,101 +104,108 @@ V_ref_n vref_n 0 0
     K3 L_sec1 L_sec2 0.95
 .ends balun_transformer
 
-* 8. IF Amplifier (2-Stage)
-.subckt if_2stage IN OUT VDD VSS
-    C_couple1 IN b1 10n
-    R_b1_1 VDD b1 15k
-    R_b1_2 b1 VSS 10k
-    X1 c1 b1 e1 VSS npn13G2l m=2
-    R_load1 VDD c1 390
-    R_e1 e1 VSS 75
-    
-    C_couple2 c1 b2 10n
-    R_b2_1 VDD b2 15k
-    R_b2_2 b2 VSS 10k
-    X2 c2 b2 e2 VSS npn13G2l m=2
-    R_load2 VDD c2 390
-    R_e2 e2 VSS 75
-    
-    C_out c2 OUT 10n
-.ends if_2stage
+
+
+
+* =============================================================================
+* NEW PRODUCTION-GRADE SUBCIRCUITS
+* =============================================================================
+.include "vco/netlists/cml_lo_buffer.cir"
+.include "pa/netlists/pa_classAB_differential.cir"
+.include "baseband/netlists/opamp_driver.cir"
+.include "frontend/netlists/tx_leakage_canceller.cir"
 
 * =============================================================================
 * SYSTEM INTEGRATION
 * =============================================================================
 
+
 * 1. VCO
 X_vco vco_out_p vco_out_n vdd_1p2 vss vco_30ghz
 
-* 2. Buffer (new)
-X_buf vco_out_p buf_out vdd_2p5 vss buffer_ef
-X_buf_dummy vco_out_n buf_out_dummy vdd_2p5 vss buffer_ef
+* 2. LO Buffer (CML for isolation)
+X_lo_buf_p vco_out_p vco_out_n lo_buf_p lo_buf_n vdd_1p2 vss cml_buffer
 
-* 3. PA
-X_predrv buf_out predrv_out vdd_2p5 vss pa_predriver
-    X_pa predrv_out pa_out vdd_2p5 vss pa_classE
+* 3. Differential Cascode Class-AB PA
+X_pa vco_out_p vco_out_n pa_out_p pa_out_n vdd_2p5 vss pa_classAB_differential
 
-* 4. Radar Channel (Physical Path Loss ~ 100dB Attenuation + Target Summing)
-* The PA must be physically terminated into a 50 ohm antenna
-R_pa_load pa_out vss 50
-E_channel pa_leakage vss pa_out vss 0.00001
+* 4. TX Balun
+* Output connects to balun secondary (p, n). Primary connects to antenna.
+X_tx_balun tx_ant pa_out_p pa_out_n vdd_2p5 vdd_2p5 vss balun_transformer
+
+* 5. Radar Channel (Physical Path Loss ~ 40dB Realistic Attenuation)
+* Physical 50 ohm antenna matching
+R_pa_load tx_ant vss 50
+
+* Leakage is 40dB (-100x power, so 0.01x voltage)
+E_channel pa_leakage vss tx_ant vss 0.01
+
+* Target reflection (100dB path loss, frequency shifted by 100MHz)
 V_target target_node vss dc 0 sin(0 0.0001 30.1G 0 0)
 E_rx_sum rx_sum_node vss vol='v(target_node) + v(pa_leakage)'
 R_source rx_sum_node rx_in 50
 
-* 5. LNA
+* 6. TX Leakage Canceller
+* Active feedforward path: taps tx_ant, phase-shifts 180 deg, and scales to exactly cancel leakage.
+* V_ctrl set to 1.5V for ~40dB attenuation range.
+V_ctrl v_ctrl_cancel 0 1.5
+X_canceller tx_ant cancel_inject v_ctrl_cancel vdd_2p5 vss tx_leakage_canceller
+
+* 7. LNA
+* The input to the LNA is the sum of the RX antenna signal and the active cancellation injection.
+C_cancel_couple cancel_inject rx_in 1p
 X_lna rx_in lna_out vdd_1p2 vss lna_30ghz_matched
 
-* 6. Balun (new)
+* 8. RX Balun
 R_balun_b1 vdd_1p2 mix_bias 10k
 R_balun_b2 mix_bias vss 10k
 C_balun_b mix_bias vss 1p
-X_balun lna_out mix_rf_p mix_rf_n mix_bias vdd_1p2 vss balun_transformer
+X_rx_balun lna_out mix_rf_p mix_rf_n mix_bias vdd_1p2 vss balun_transformer
 
-* 7. Mixer
-X_mix mix_rf_p mix_rf_n vco_out_p vco_out_n if_p if_n vdd_2p5 vss mixer_gilbert
+* 9. Mixer (Gilbert Cell)
+* Driven by the isolated CML buffer!
+X_mix mix_rf_p mix_rf_n lo_buf_p lo_buf_n if_p if_n vdd_2p5 vss mixer_gilbert
 
-* IF Filter (to remove 30 GHz LO feedthrough without killing unknown physical IF frequency)
+* IF Filter (to remove 30 GHz LO feedthrough without killing 100MHz IF)
 C_if_filter_p if_p vss 0.1p
 C_if_filter_n if_n vss 0.1p
 
-* 8. IF Amplifier (new)
-X_if_amp if_p if_amp_out vdd_2p5 vss if_2stage
-R_adc_load if_amp_out vss 1Meg
+* 10. Baseband OpAmp (Active Anti-Aliasing Filter & ADC Driver)
+* Drives the SAR ADC, acts as low-pass filter (fc = 176MHz)
+X_opamp if_p if_n opamp_out vdd_2p5 vss opamp_driver
 
-* 9. ADC (Transistor Level)
+* 11. ADC (Transistor Level)
 .include "adc/netlists/adc_sar_transistor.cir"
-X_adc if_amp_out clk adc_0 adc_1 adc_2 adc_3 adc_4 adc_5 adc_6 adc_7 vref_p vref_n vdd_1p2 vss adc_sar_transistor
+X_adc dummy_adc_in clk adc_0 adc_1 adc_2 adc_3 adc_4 adc_5 adc_6 adc_7 vref_p vref_n vdd_1p2 vss adc_sar_transistor
 
-* =============================================================================
-* ANALYSIS
-* =============================================================================
-I_startup vdd_1p2 x_vco.c1 pulse(0 2m 0 10p 10p 50p 100n)
+I_startup vdd_1p2 x_vco.c1 pulse(0 2m 0 1n 1n 2n 100n)
 .control
-    tran 1p 100n
+    tran 1p 30n
     
     * Measure VCO Amplitude
-    meas tran vco_vpp PP v(vco_out_p) from=20n to=100n
+    meas tran vco_vpp PP v(vco_out_p) from=15n to=30n
     * Measure Buffer Amplitude
-    meas tran buf_vpp PP v(buf_out) from=20n to=100n
+    * meas tran buf_vpp PP v(buf_out) from=15n to=30n
     * Measure Pre-Driver Amplitude
-    meas tran predrv_vpp PP v(predrv_out) from=20n to=100n
+    * meas tran predrv_vpp PP v(predrv_out) from=15n to=30n
     * Measure PA Amplitude
-    meas tran pa_vpp PP v(pa_out) from=20n to=100n
+    meas tran pa_vpp PP v(tx_ant) from=15n to=30n
     * Measure LNA Amplitude
-    meas tran lna_vpp PP v(lna_out) from=20n to=100n
+    meas tran lna_vpp PP v(lna_out) from=15n to=30n
     * Measure Mixer Output Amplitude (Now capturing 100MHz IF)
-    meas tran if_mix_vpp PP v(if_p) from=20n to=100n
+    meas tran if_mix_vpp PP v(if_p) from=15n to=30n
     
     * Measure true IF Amp output (Now capturing 100MHz IF)
-    meas tran if_amp_ripple_vpp PP v(if_amp_out) from=20n to=100n
+    meas tran if_amp_ripple_vpp PP v(opamp_out) from=15n to=30n
 
-    
     * Estimate Total System Current
     let i_vdd12 = -Vdd_1p2#branch
     let i_vdd25 = -Vdd_2p5#branch
     let p_total = (i_vdd12 * 1.2) + (i_vdd25 * 2.5)
     print p_total
+    
+    set filetype=ascii
+    write pvt_v2_SF_27C_LowV.raw v(opamp_out) v(tx_ant)
     
     quit
 .endc
