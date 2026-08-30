@@ -1,7 +1,11 @@
-# Simulation output data (large binary)
+# ============================================================
+# .gitignore for 30ghz_fmcw_frontend
+# ============================================================
+
+# --- Simulation output data (large binary) ---
 *.raw
 
-# LaTeX auxiliary files
+# --- LaTeX auxiliary files ---
 *.aux
 *.out
 *.toc
@@ -13,25 +17,35 @@
 *.bbl
 *.blg
 
-# OS
+# --- OS ---
 .DS_Store
 Thumbs.db
 
-# Python
+# --- Python ---
 __pycache__/
 *.pyc
 
-# Markdown docs (except README)
+# --- Markdown docs (except README, VERIFICATION_STATUS, KNOWN_ISSUES) ---
 complete_design_adr.md
 frontend_netlists.md
 engineering_journal.md
 task.md
 doc_src/
 
-# Generated scripts
+# --- Generated scripts ---
 generate_adr.py
-
-# Session logs (large, not needed in repo)
-session-*.md
 generate_adr_v2.py
-complete_frontend.cir
+
+# --- Session logs (large, not needed in repo) ---
+session-*.md
+
+# --- Editor files ---
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# --- Temporary files ---
+*.tmp
+*.bak
