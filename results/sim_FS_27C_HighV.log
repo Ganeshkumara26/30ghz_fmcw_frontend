@@ -177,7 +177,7 @@ vss#branch                            0.246662
 vdd_2p5#branch                       -0.234835
 vdd_1p2#branch                      -0.0118275
 
- Reference value :  1.07477e-10 Reference value :  5.83497e-10 Reference value :  1.13482e-09
+ Reference value :  4.45000e-11 Reference value :  4.75958e-10 Reference value :  8.87922e-10 Reference value :  1.40845e-09
 No. of Data Rows : 1624
 vco_vpp             =  0.00000e+00 from=  1.00000e-08 to=  2.50000e-08
 buf_vpp             =  0.00000e+00 from=  1.00000e-08 to=  2.50000e-08
@@ -187,7 +187,7 @@ lna_vpp             =  0.00000e+00 from=  1.00000e-08 to=  2.50000e-08
 if_mix_vpp          =  0.00000e+00 from=  1.00000e-08 to=  2.50000e-08
 if_amp_ripple_vpp   =  0.00000e+00 from=  1.00000e-08 to=  2.50000e-08
          * complete 30 ghz radar frontend verification - tapeout ready
-         Transient Analysis  Wed Aug 26 11:19:55  2026
+         Transient Analysis  Thu Sep  3 19:53:20  2026
 --------------------------------------------------------------------------------
 Index   time            p_total         
 --------------------------------------------------------------------------------

@@ -177,7 +177,7 @@ vss#branch                           0.0696727
 vdd_2p5#branch                      -0.0625258
 vdd_1p2#branch                     -0.00714693
 
- Reference value :  3.58646e-10 Reference value :  9.71011e-10 Reference value :  1.61475e-09 Reference value :  2.26986e-09 Reference value :  2.90177e-09 Reference value :  3.55580e-09 Reference value :  4.26714e-09 Reference value :  5.00954e-09 Reference value :  5.66065e-09 Reference value :  6.32877e-09 Reference value :  6.94203e-09 Reference value :  7.58447e-09 Reference value :  8.25483e-09 Reference value :  8.90434e-09 Reference value :  9.56677e-09 Reference value :  1.02604e-08 Reference value :  1.09513e-08 Reference value :  1.15100e-08 Reference value :  1.21187e-08 Reference value :  1.27706e-08 Reference value :  1.33658e-08 Reference value :  1.40005e-08 Reference value :  1.46964e-08 Reference value :  1.53176e-08 Reference value :  1.60268e-08 Reference value :  1.66354e-08 Reference value :  1.72334e-08 Reference value :  1.78045e-08 Reference value :  1.83667e-08 Reference value :  1.89559e-08 Reference value :  1.95496e-08 Reference value :  2.02254e-08 Reference value :  2.08524e-08 Reference value :  2.14897e-08 Reference value :  2.21091e-08 Reference value :  2.28539e-08 Reference value :  2.34297e-08 Reference value :  2.40332e-08 Reference value :  2.47074e-08
+ Reference value :  4.35929e-10 Reference value :  1.07424e-09 Reference value :  1.74939e-09 Reference value :  2.52366e-09 Reference value :  3.20342e-09 Reference value :  4.02560e-09 Reference value :  4.56880e-09 Reference value :  5.14869e-09 Reference value :  5.76386e-09 Reference value :  6.46458e-09 Reference value :  7.22684e-09 Reference value :  7.90136e-09 Reference value :  8.54057e-09 Reference value :  9.14701e-09 Reference value :  9.78406e-09 Reference value :  1.04598e-08 Reference value :  1.12913e-08 Reference value :  1.20510e-08 Reference value :  1.26205e-08 Reference value :  1.31155e-08 Reference value :  1.37656e-08 Reference value :  1.44430e-08 Reference value :  1.51371e-08 Reference value :  1.58262e-08 Reference value :  1.64318e-08 Reference value :  1.71745e-08 Reference value :  1.78503e-08 Reference value :  1.84906e-08 Reference value :  1.91502e-08 Reference value :  1.98849e-08 Reference value :  2.03726e-08 Reference value :  2.10299e-08 Reference value :  2.16893e-08 Reference value :  2.23677e-08 Reference value :  2.31155e-08 Reference value :  2.39661e-08 Reference value :  2.46190e-08
 No. of Data Rows : 26013
 vco_vpp             =  7.59273e-01 from=  1.00000e-08 to=  2.50000e-08
 buf_vpp             =  4.72158e-01 from=  1.00000e-08 to=  2.50000e-08
@@ -187,7 +187,7 @@ lna_vpp             =  1.73621e-03 from=  1.00000e-08 to=  2.50000e-08
 if_mix_vpp          =  3.85812e-02 from=  1.00000e-08 to=  2.50000e-08
 if_amp_ripple_vpp   =  6.61425e-02 from=  1.00000e-08 to=  2.50000e-08
          * complete 30 ghz radar frontend verification - tapeout ready
-         Transient Analysis  Wed Aug 26 11:19:57  2026
+         Transient Analysis  Thu Sep  3 19:53:21  2026
 --------------------------------------------------------------------------------
 Index   time            p_total         
 --------------------------------------------------------------------------------

@@ -25,9 +25,9 @@ def run_pvt():
         content = base_content
         
         # Replace library corners
-        content = re.sub(r'\.lib ".*?cornerHBT\.lib" \w+', f'.lib "/mnt/d/Desktop/Vault/03 Projects/junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/ngspice/models/cornerHBT.lib" {corner["hbt"]}', content)
-        content = re.sub(r'\.lib ".*?cornerCAP\.lib" \w+', f'.lib "/mnt/d/Desktop/Vault/03 Projects/junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/ngspice/models/cornerCAP.lib" {corner["cap"]}', content)
-        content = re.sub(r'\.lib ".*?cornerRES\.lib" \w+', f'.lib "/mnt/d/Desktop/Vault/03 Projects/junk/vco/IHP-Open-PDK-0.3.0/ihp-sg13g2/libs.tech/ngspice/models/cornerRES.lib" {corner["res"]}', content)
+        content = re.sub(r'\.lib ".*?cornerHBT\.lib" \w+', f'.lib "/tmp/ihp_sg13g2/libs.tech/ngspice/models/cornerHBT.lib" {corner["hbt"]}', content)
+        content = re.sub(r'\.lib ".*?cornerCAP\.lib" \w+', f'.lib "/tmp/ihp_sg13g2/libs.tech/ngspice/models/cornerCAP.lib" {corner["cap"]}', content)
+        content = re.sub(r'\.lib ".*?cornerRES\.lib" \w+', f'.lib "/tmp/ihp_sg13g2/libs.tech/ngspice/models/cornerRES.lib" {corner["res"]}', content)
         
         # Replace Temperature
         if "Doing analysis at TEMP" in content or ".options" in content:
@@ -49,7 +49,7 @@ def run_pvt():
             
         # Run ngspice in WSL
         log_file = f"sim_{corner['name']}.log"
-        cmd = f'wsl bash -c "ngspice -b {temp_netlist} > {log_file}"'
+        cmd = f'wsl bash -c "export PDK_ROOT=\'/tmp\' && ngspice -b {temp_netlist} > {log_file}"'
         subprocess.run(cmd, shell=True)
         
         # Extract results
