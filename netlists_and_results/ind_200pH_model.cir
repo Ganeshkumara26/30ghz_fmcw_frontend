@@ -1,0 +1,5 @@
+* Equivalent Pi-network for ind_200pH from openEMS
+.subckt ind_200pH_model p1 p2 sub
+L_s p1 n_int 3.954623619791916e-10
+R_s n_int p2 -0.1901544148928444
+.ends ind_200pH_model

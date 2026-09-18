@@ -1,0 +1,77 @@
+* 30 GHz LNA Standalone — Xyce (v6: fixed cascode bias stacking)
+* ==============================================================================
+* Problem: 1.2V supply + cascode + 0.85V Vbe = no headroom.
+* If CB base is at 0.9V, CB emitter is 0.05V -> CE is saturated.
+* Fix: Bias CB base as high as possible (1.15V) to give CE ~0.3V Vce.
+* We also AC couple the RF output so the load doesn't pull DC.
+* ==============================================================================
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerHBT.lib hbt_typ
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerRES.lib res_typ
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerCAP.lib cap_typ
+
+.options NONLIN MAXSTEP=200
+.options DEVICE temp=27
+
+.include ind_180pH_model.cir
+.include ind_60pH_model.cir
+.include ind_100pH_model.cir
+
+Vdd vdd 0 3.0
+
+* Input: 30 GHz, ~-47 dBm (1mV peak)
+Vin rx_src 0 SIN(0 0.001 30G)
+R_src rx_src lna_in 50
+
+* Input matching
+X_lnas lna_in lna_match 0 ind_180pH_model
+C_lnash lna_match 0 46f
+C_lnablk lna_match lna_base 200f
+
+* CE Base bias (Target ~1mA-2mA)
+R_lnab1 vdd lna_base 23.5k
+R_lnab2 lna_base 0 9k
+
+* CE stage (Nx=2)
+X_lna_ce lna_coll lna_base lna_emit 0 npn13G2 PARAMS: Nx=2
+
+* Inductive degeneration
+X_lna_deg lna_emit 0 0 ind_60pH_model
+
+* CB stage bias: push as high as possible to give CE Vce headroom
+* 1k / 20k -> ~1.14V
+R_lnacb1 vdd lna_cbias 10k
+R_lnacb2 lna_cbias 0 20k
+C_lna_bypass lna_cbias 0 5p
+
+* CB base stabilization resistor (In-Band Fix)
+R_cb_stab lna_cbias lna_cbias_node 5
+
+* CB stage
+X_lna_cb lna_out lna_cbias_node lna_coll 0 npn13G2 PARAMS: Nx=2
+
+* Load inductor + resonance cap
+X_lna_load vdd lna_out 0 ind_100pH_model
+C_lna_res lna_out 0 200f
+
+* Near-DC Stabilization (Out-of-band loading)
+R_out_stab lna_out lna_out_stab 10
+C_out_stab lna_out_stab 0 100p
+
+* AC coupled output to realistic mixer attenuator load (700 ohms)
+C_out_ac lna_out lna_out_ac 1p
+R_lna_load lna_out_ac 0 700
+
+* Analysis
+.tran 0.5p 10n 0 0.5p
+
+.measure tran lna_vpp_out PP v(lna_out_ac) FROM=7n TO=10n
+.measure tran lna_vin PP v(lna_in) FROM=7n TO=10n
+.measure tran lna_vbase AVG v(lna_base) FROM=7n TO=10n
+.measure tran lna_vcoll AVG v(lna_coll) FROM=7n TO=10n
+.measure tran lna_vemit AVG v(lna_emit) FROM=7n TO=10n
+.measure tran lna_vout_dc AVG v(lna_out) FROM=7n TO=10n
+.measure tran lna_idc AVG i(Vdd) FROM=7n TO=10n
+
+.print tran v(lna_in) v(lna_out_ac) v(lna_base) v(lna_coll) v(lna_emit) v(lna_cbias) i(Vdd)
+
+.end

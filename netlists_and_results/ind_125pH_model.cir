@@ -1,0 +1,5 @@
+* Equivalent Pi-network for ind_125pH from openEMS
+.subckt ind_125pH_model p1 p2 sub
+L_s p1 n_int 2.5134937981125723e-10
+R_s n_int p2 -0.11331040718633761
+.ends ind_125pH_model

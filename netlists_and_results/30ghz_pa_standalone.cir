@@ -1,0 +1,82 @@
+* 30 GHz PA Standalone — Xyce (v4: true cascode, Nx=32 scaled up)
+* ==============================================================================
+* Fixes the destroyed cascode topology. The driver (CE) collector MUST connect
+* directly to the cascode (CB) emitter.
+* Scaled up to Nx=32 to hit the +10 dBm power target.
+* ==============================================================================
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerHBT.lib hbt_wcs
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerRES.lib res_typ
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerCAP.lib cap_typ
+
+.options NONLIN MAXSTEP=200
+.options DEVICE temp=-40
+
+Vdd_pa vdd_pa 0 3.0
+
+* Input: 30 GHz, 150mV peak
+Vin_p in_ac_p 0 SIN(0 0.25 30G)
+Vin_n in_ac_n 0 SIN(0 0.25 30G 0 0 180)
+
+* === AC-coupled input + base bias ===
+C_ac_in_n in_ac_n pa_in_n 1p
+C_ac_in_p in_ac_p pa_in_p 1p
+
+* Base bias for CE stage (target ~20-40mA for Nx=32)
+R_b1_n vdd_pa pa_in_n 1k
+R_b2_n pa_in_n 0 400
+R_b1_p vdd_pa pa_in_p 1k
+R_b2_p pa_in_p 0 400
+
+* === CASCODE CE STAGE (Nx=32) ===
+X_pa_ce_n pa_mid_n pa_in_n pa_emit 0 npn13G2 PARAMS: Nx=32
+X_pa_ce_p pa_mid_p pa_in_p pa_emit 0 npn13G2 PARAMS: Nx=32
+
+* Degeneration / Tail
+R_tail pa_emit 0 2.5
+
+* === CASCODE CB STAGE (Nx=32) ===
+* CB Base bias: Needs to give CE enough headroom
+* Vdd=3V. If CB base is at 1.8V, CB emitter is ~0.95V.
+R_cb1 vdd_pa cbias 300
+R_cb2 cbias 0 450
+C_cb cbias 0 10p
+
+* Cascode R-C Snubber (In-Band Stabilization)
+R_snub_n pa_mid_n pa_snub_n 10
+C_snub_n pa_snub_n 0 30f
+R_snub_p pa_mid_p pa_snub_p 10
+C_snub_p pa_snub_p 0 30f
+
+X_pa_cb_n out_n cbias pa_mid_n 0 npn13G2 PARAMS: Nx=32
+X_pa_cb_p out_p cbias pa_mid_p 0 npn13G2 PARAMS: Nx=32
+
+* === OUTPUT NETWORK ===
+.include ind_125pH_model.cir
+X_load_n vdd_pa out_n 0 ind_125pH_model
+X_load_p vdd_pa out_p 0 ind_125pH_model
+C_res_n out_n 0 22f
+C_res_p out_p 0 22f
+R_ant_p out_p 0 50
+R_ant_n out_n 0 50
+
+* Near-DC Stabilization (Out-of-band loading)
+R_out_stab_n out_n out_stab_n 20
+C_out_stab_n out_stab_n 0 50p
+R_out_stab_p out_p out_stab_p 20
+C_out_stab_p out_stab_p 0 50p
+
+* Analysis
+.ic v(pa_in_n)=0.857 v(pa_in_p)=0.857 v(pa_emit)=0.05 v(cbias)=1.8
+.ic v(pa_mid_n)=1.0 v(pa_mid_p)=1.0 v(out_n)=3.0 v(out_p)=3.0
+.tran 0.5p 10n 0 0.5p UIC
+
+.measure tran pa_vpp_p PP v(out_p) FROM=7n TO=10n
+.measure tran pa_vpp_n PP v(out_n) FROM=7n TO=10n
+.measure tran pa_vin_pp PP v(in_ac_p) FROM=7n TO=10n
+.measure tran pa_idc AVG i(Vdd_pa) FROM=7n TO=10n
+.measure tran mid_vpp PP v(pa_mid_n) FROM=7n TO=10n
+.measure tran cbias_v AVG v(cbias) FROM=7n TO=10n
+
+.print tran v(out_p) v(out_n) v(pa_mid_n) v(pa_mid_p) v(pa_in_n) v(pa_emit) v(cbias) i(Vdd_pa)
+
+.end

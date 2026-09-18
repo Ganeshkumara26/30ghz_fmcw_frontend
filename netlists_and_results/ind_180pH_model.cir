@@ -1,0 +1,5 @@
+* Equivalent Pi-network for ind_180pH from openEMS
+.subckt ind_180pH_model p1 p2 sub
+L_s p1 n_int 3.4653039568888025e-10
+R_s n_int p2 -0.2111956134696974
+.ends ind_180pH_model

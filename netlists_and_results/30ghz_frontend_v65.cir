@@ -1,0 +1,198 @@
+* 30 GHz Full Frontend — Xyce (TX + RX, EM-extracted inductors, Nx=32 PA)
+* ==============================================================================
+* Complete integration: VCO → Buffer → PA (TX) + LNA → Mixer → IF Amp (RX)
+* LO is tapped from the buffer chain and fed to the mixer.
+* ==============================================================================
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerHBT.lib hbt_typ
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerRES.lib res_typ
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerCAP.lib cap_typ
+
+.options NONLIN MAXSTEP=200
+.options DEVICE temp=27
+.options TIMEINT METHOD=GEAR
+
+.include ind_125pH_model.cir
+.include ind_200pH_model.cir
+.include ind_180pH_model.cir
+.include ind_60pH_model.cir
+.include ind_100pH_model.cir
+
+* ==============================================================================
+* SUPPLIES
+* ==============================================================================
+Vdd_30 vdd_30 0 1.2
+Vpa_30 vdd_pa 0 3.0
+Vdd_lna vdd_lna 0 3.0
+Vdd_mix vdd_mix 0 1.2
+Vdd_if vdd_if 0 1.2
+
+* ==============================================================================
+* TX: VCO (Cross-coupled LC, 30 GHz)
+* ==============================================================================
+X_ind1 vdd_30 out_x_int 0 ind_200pH_model
+X_ind2 vdd_30 out_y_int 0 ind_200pH_model
+Rser_x out_x_int out_x 5
+Rser_y out_y_int out_y 5
+C_var1 out_x 0 56f
+C_var2 out_y 0 56f
+X1 out_x out_y tail_30 0 npn13G2 PARAMS: Nx=1
+X2 out_y out_x tail_30 0 npn13G2 PARAMS: Nx=1
+I_ref_30 vdd_30 ref_30 1m
+X_mref_30 ref_30 ref_30 0 0 npn13G2 PARAMS: Nx=1
+R_mtail_iso tail_30 mtail_coll 10
+C_mtail_bypass mtail_coll 0 5f
+X_mtail_30 mtail_coll ref_30 0 0 npn13G2 PARAMS: Nx=1
+C_bypass_ref ref_30 0 2p
+I_kick out_x out_y PWL(0 0 5p 2m 20p 0)
+
+* ==============================================================================
+* TX: Buffer Chain
+* ==============================================================================
+C_ac_x out_x inv_in_x 500f
+C_ac_y out_y inv_in_y 500f
+X_inv_n1 inv_out_x inv_in_x 0 0 npn13G2 PARAMS: Nx=1
+R_load_x vdd_30 inv_out_x 200
+R_fb_x inv_out_x inv_in_x 10k
+X_inv_n2 inv_out_y inv_in_y 0 0 npn13G2 PARAMS: Nx=1
+R_load_y vdd_30 inv_out_y 200
+R_fb_y inv_out_y inv_in_y 10k
+
+X_buf2_n buf2_n inv_out_x buf2_tail 0 npn13G2 PARAMS: Nx=4
+X_buf2_p buf2_p inv_out_y buf2_tail 0 npn13G2 PARAMS: Nx=4
+R_buf2_p vdd_30 buf2_p 100
+R_buf2_n vdd_30 buf2_n 100
+I_buf2_tail buf2_tail 0 20m
+
+X_buf3_n buf3_n buf2_n buf3_tail 0 npn13G2 PARAMS: Nx=4
+X_buf3_p buf3_p buf2_p buf3_tail 0 npn13G2 PARAMS: Nx=4
+R_buf3_p vdd_30 buf3_p 100
+R_buf3_n vdd_30 buf3_n 100
+I_buf3_tail buf3_tail 0 20m
+
+* ==============================================================================
+* TX: PA (True Cascode, Nx=32)
+* ==============================================================================
+C_ac_in_n buf3_n pa_in_n 1p
+C_ac_in_p buf3_p pa_in_p 1p
+
+R_b1_n vdd_pa pa_in_n 1k
+R_b2_n pa_in_n 0 400
+R_b1_p vdd_pa pa_in_p 1k
+R_b2_p pa_in_p 0 400
+
+X_pa_ce_n pa_mid_n pa_in_n pa_emit 0 npn13G2 PARAMS: Nx=32
+X_pa_ce_p pa_mid_p pa_in_p pa_emit 0 npn13G2 PARAMS: Nx=32
+R_tail pa_emit 0 2.5
+
+R_cb1 vdd_pa cbias 300
+R_cb2 cbias 0 450
+C_cb cbias 0 10p
+* Cascode R-C Snubber (In-Band Stabilization)
+R_snub_n pa_mid_n pa_snub_n 10
+C_snub_n pa_snub_n 0 30f
+R_snub_p pa_mid_p pa_snub_p 10
+C_snub_p pa_snub_p 0 30f
+
+X_pa_cb_n tx_out_n cbias pa_mid_n 0 npn13G2 PARAMS: Nx=32
+X_pa_cb_p tx_out_p cbias pa_mid_p 0 npn13G2 PARAMS: Nx=32
+
+X_load_n vdd_pa tx_out_n 0 ind_125pH_model
+X_load_p vdd_pa tx_out_p 0 ind_125pH_model
+C_res_n tx_out_n 0 22f
+C_res_p tx_out_p 0 22f
+R_ant_p tx_out_p 0 50
+R_ant_n tx_out_n 0 50
+
+* Near-DC Stabilization (Out-of-band loading)
+R_out_stab_n tx_out_n out_stab_n 20
+C_out_stab_n out_stab_n 0 50p
+R_out_stab_p tx_out_p out_stab_p 20
+C_out_stab_p out_stab_p 0 50p
+
+* ==============================================================================
+* RX: LNA (Cascode, 3.0V supply)
+* ==============================================================================
+V_rx rx_in 0 SIN(0 0.001 30G)
+
+X_lnas rx_in lna_match 0 ind_180pH_model
+C_lnash lna_match 0 46f
+C_lnablk lna_match lna_base 200f
+R_lnab1 vdd_lna lna_base 23.5k
+R_lnab2 lna_base 0 9k
+X_lna_ce lna_coll lna_base lna_emit 0 npn13G2 PARAMS: Nx=2
+X_lna_deg lna_emit 0 0 ind_60pH_model
+R_lnacb1 vdd_lna lna_cbias 10k
+R_lnacb2 lna_cbias 0 20k
+C_lna_bypass lna_cbias 0 5p
+
+* CB base stabilization resistor (In-Band Fix)
+R_cb_stab lna_cbias lna_cbias_node 5
+X_lna_cb lna_out lna_cbias_node lna_coll 0 npn13G2 PARAMS: Nx=2
+X_lna_load vdd_lna lna_out 0 ind_100pH_model
+C_lna_res lna_out 0 200f
+
+* Near-DC Stabilization (Out-of-band loading)
+R_out_stab lna_out lna_out_stab 10
+C_out_stab lna_out_stab 0 100p
+
+* ==============================================================================
+* RX: Gilbert Cell Mixer (LO from buffer chain)
+* ==============================================================================
+* === MIXER (Fixed AC coupling and biasing) ===
+C_ac_mixrx lna_out mx_rf_p 1p
+
+* RF transconductor bias (0.85V for npn13G2)
+R_bmix_p1 vdd_mix mx_rf_p 1k
+R_bmix_p2 mx_rf_p 0 2.4k
+R_bmix_n1 vdd_mix mx_rfn 1k
+R_bmix_n2 mx_rfn 0 2.4k
+
+X_mix_1 mx_c1 mx_rf_p mx_rf_tail 0 npn13G2 PARAMS: Nx=4
+X_mix_2 mx_c2 mx_rfn mx_rf_tail 0 npn13G2 PARAMS: Nx=4
+I_rftail mx_rf_tail 0 4m
+
+* LO buffer (drives mixer switching quad from VCO buffer)
+X_lobuf_1 lo_buf_p buf2_p lo_tail 0 npn13G2 PARAMS: Nx=2
+X_lobuf_2 lo_buf_n buf2_n lo_tail 0 npn13G2 PARAMS: Nx=2
+R_lobuf_p vdd_mix lo_buf_p 200
+R_lobuf_n vdd_mix lo_buf_n 200
+I_lobuf_tail lo_tail 0 2m
+
+X_mix_3 if_p lo_buf_p mx_c1 0 npn13G2 PARAMS: Nx=4
+X_mix_4 if_p lo_buf_n mx_c2 0 npn13G2 PARAMS: Nx=4
+X_mix_5 if_n lo_buf_n mx_c1 0 npn13G2 PARAMS: Nx=4
+X_mix_6 if_n lo_buf_p mx_c2 0 npn13G2 PARAMS: Nx=4
+R_ld_p vdd_mix if_p 200
+R_ld_n vdd_mix if_n 200
+
+* ==============================================================================
+* RX: IF Amplifier (700 ohm load, 2pF LO leakage filter)
+* ==============================================================================
+C_cif if_p if_base 100n
+C_ifbase if_base 0 2p
+R_ifb1 vdd_if if_base 1750
+R_ifb2 if_base 0 4250
+X_if if_out if_base if_emit 0 npn13G2 PARAMS: Nx=2
+R_ifld vdd_if if_out 700
+R_ifre if_emit 0 10
+C_ifout if_out 0 10p
+
+* ==============================================================================
+* ANALYSIS
+* ==============================================================================
+.ic v(out_x)=1.170 v(out_y)=1.165 v(tail_30)=0.7 v(ref_30)=0.885
+.ic v(pa_in_n)=0.857 v(pa_in_p)=0.857 v(pa_emit)=0.05 v(cbias)=1.61
+.ic v(pa_mid_n)=0.9 v(pa_mid_p)=0.9
+.tran 0.5p 2n 0 0.5p UIC
+
+.measure tran vco_vpp PP v(out_x) FROM=1.5n TO=2n
+.measure tran tx_vpp_p PP v(tx_out_p) FROM=1.5n TO=2n
+.measure tran tx_vpp_diff PP v(tx_out_p, tx_out_n) FROM=1.5n TO=2n
+.measure tran rx_lna_vpp PP v(lna_out) FROM=1.5n TO=2n
+.measure tran rx_mix_vpp PP v(if_p) FROM=1.5n TO=2n
+.measure tran rx_if_vpp PP v(if_out) FROM=1.5n TO=2n
+.measure tran pa_idc AVG i(Vpa_30) FROM=1.5n TO=2n
+
+.print tran v(out_x) v(tx_out_p) v(tx_out_n) v(lna_out) v(if_p) v(if_out) i(Vpa_30)
+
+.end

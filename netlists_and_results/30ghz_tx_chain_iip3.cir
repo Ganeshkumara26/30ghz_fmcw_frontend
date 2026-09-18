@@ -1,0 +1,104 @@
+* 30 GHz TX Chain — Xyce (VCO -> Buffer -> PA, True Cascode Nx=8)
+* ==============================================================================
+* Integration of VCO, buffer, and PA with corrected PA topology.
+* PA uses the true cascode topology, scaled to Nx=8 for simulation speed.
+* ==============================================================================
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerHBT.lib hbt_typ
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerRES.lib res_typ
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerCAP.lib cap_typ
+
+.options NONLIN MAXSTEP=200
+.options DEVICE temp=27
+
+.include ind_500pH_model.cir
+
+Vdd_30 vdd_30 0 1.2
+Vpa_30 vdd_pa 0 3.0
+
+* === VCO (FIXED C=120.5fF) ===
+.include ind_200pH_model.cir
+
+X_ind1 vdd_30 out_x_int 0 ind_200pH_model
+X_ind2 vdd_30 out_y_int 0 ind_200pH_model
+Rser_x out_x_int out_x 5
+Rser_y out_y_int out_y 5
+C_var1 out_x 0 120.5f
+C_var2 out_y 0 120.5f
+X1 out_x out_y tail_30 0 npn13G2 PARAMS: Nx=1
+X2 out_y out_x tail_30 0 npn13G2 PARAMS: Nx=1
+I_ref_30 vdd_30 ref_30 1m
+X_mref_30 ref_30 ref_30 0 0 npn13G2 PARAMS: Nx=1
+R_mtail_iso tail_30 mtail_coll 10
+C_mtail_bypass mtail_coll 0 5f
+X_mtail_30 mtail_coll ref_30 0 0 npn13G2 PARAMS: Nx=1
+C_bypass_ref ref_30 0 2p
+I_kick out_x out_y PWL(0 0 5p 2m 20p 0)
+
+* === BUFFER CHAIN ===
+C_ac_x out_x inv_in_x 500f
+C_ac_y out_y inv_in_y 500f
+X_inv_n1 inv_out_x inv_in_x 0 0 npn13G2 PARAMS: Nx=1
+R_load_x vdd_30 inv_out_x 200
+R_fb_x inv_out_x inv_in_x 10k
+X_inv_n2 inv_out_y inv_in_y 0 0 npn13G2 PARAMS: Nx=1
+R_load_y vdd_30 inv_out_y 200
+R_fb_y inv_out_y inv_in_y 10k
+
+X_buf2_n buf2_n inv_out_x buf2_tail 0 npn13G2 PARAMS: Nx=4
+X_buf2_p buf2_p inv_out_y buf2_tail 0 npn13G2 PARAMS: Nx=4
+R_buf2_p vdd_30 buf2_p 100
+R_buf2_n vdd_30 buf2_n 100
+I_buf2_tail buf2_tail 0 20m
+
+X_buf3_n buf3_n buf2_n buf3_tail 0 npn13G2 PARAMS: Nx=4
+X_buf3_p buf3_p buf2_p buf3_tail 0 npn13G2 PARAMS: Nx=4
+R_buf3_p vdd_30 buf3_p 100
+R_buf3_n vdd_30 buf3_n 100
+I_buf3_tail buf3_tail 0 20m
+
+* === PA (True Cascode, Nx=8) ===
+* AC couple from buffer to PA
+C_ac_in_n buf3_n pa_in_n 1p
+C_ac_in_p buf3_p pa_in_p 1p
+
+* Base bias for CE stage
+R_b1_n vdd_pa pa_in_n 3k
+R_b2_n pa_in_n 0 1200
+R_b1_p vdd_pa pa_in_p 3k
+R_b2_p pa_in_p 0 1200
+
+* CE Stage (Nx=8)
+X_pa_ce_n pa_mid_n pa_in_n pa_emit 0 npn13G2 PARAMS: Nx=8
+X_pa_ce_p pa_mid_p pa_in_p pa_emit 0 npn13G2 PARAMS: Nx=8
+R_tail pa_emit 0 10
+
+* CB Stage (Nx=8)
+R_cb1 vdd_pa cbias 1k
+R_cb2 cbias 0 1.5k
+C_cb cbias 0 5p
+X_pa_cb_n out_n cbias pa_mid_n 0 npn13G2 PARAMS: Nx=8
+X_pa_cb_p out_p cbias pa_mid_p 0 npn13G2 PARAMS: Nx=8
+
+* Output Network
+X_load_n vdd_pa out_n 0 ind_500pH_model
+X_load_p vdd_pa out_p 0 ind_500pH_model
+C_res_n out_n 0 28f
+C_res_p out_p 0 28f
+R_ant_p out_p 0 50
+R_ant_n out_n 0 50
+
+* Analysis
+.ic v(out_x)=1.170 v(out_y)=1.165 v(tail_30)=0.7 v(ref_30)=0.885
+.tran 1.0p 40n 20n 1.0p UIC
+
+.measure tran vco_per TRIG v(out_x) VAL=1.17 RISE=3 TARG v(out_x) VAL=1.17 RISE=5
+.measure tran vco_vpp PP v(out_x) FROM=7n TO=10n
+.measure tran buf3_vpp PP v(buf3_n) FROM=7n TO=10n
+.measure tran tx_vpp_p PP v(out_p) FROM=7n TO=10n
+.measure tran tx_vpp_n PP v(out_n) FROM=7n TO=10n
+.measure tran pa_idc AVG i(Vpa_30) FROM=7n TO=10n
+
+.print tran format=csv file=30ghz_tx_chain_iip3.cir.prn v(out_p)
+.print tran v(out_x) v(out_y) v(buf3_n) v(buf3_p) v(out_p) v(out_n) i(Vpa_30)
+
+.end

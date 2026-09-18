@@ -1,0 +1,98 @@
+* 30 GHz RX Chain — Xyce (LNA -> Mixer -> IF Amp, FIXED)
+* ==============================================================================
+* Exact v65 topology with IF amp bias fix (1750/4250)
+* and bypass cap fix (10pF instead of 10nF)
+* ==============================================================================
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerHBT.lib hbt_typ
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerRES.lib res_typ
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerCAP.lib cap_typ
+
+.options NONLIN MAXSTEP=200
+.options DEVICE temp=27
+
+.include ind_180pH_model.cir
+.include ind_60pH_model.cir
+.include ind_100pH_model.cir
+
+Vdd vdd 0 1.2
+Vdd_if vdd_if 0 1.2
+Vdd_lna vdd_lna 0 3.0
+
+* RF Input (30 GHz, 1mV peak = ~-47 dBm)
+V_rx rx_in 0 SIN(0 0.001 30G)
+
+* === LNA (per v65 lines 287-299) ===
+X_lnas rx_in lna_match 0 ind_180pH_model
+C_lnash lna_match 0 46f
+C_lnablk lna_match lna_base 200f
+R_lnab1 vdd_lna lna_base 23.5k
+R_lnab2 lna_base 0 9k
+X_lna_ce lna_coll lna_base lna_emit 0 npn13G2 PARAMS: Nx=2
+X_lna_deg lna_emit 0 0 ind_60pH_model
+R_lnacb1 vdd_lna lna_cbias 10k
+R_lnacb2 lna_cbias 0 20k
+C_lna_bypass lna_cbias 0 5p
+
+* CB base stabilization resistor (In-Band Fix)
+R_cb_stab lna_cbias lna_cbias_node 5
+X_lna_cb lna_out lna_cbias_node lna_coll 0 npn13G2 PARAMS: Nx=2
+X_lna_load vdd_lna lna_out 0 ind_100pH_model
+C_lna_res lna_out 0 200f
+
+* Near-DC Stabilization (Out-of-band loading)
+R_out_stab lna_out lna_out_stab 10
+C_out_stab lna_out_stab 0 100p
+
+* === MIXER (Fixed AC coupling and biasing) ===
+C_ac_mixrx lna_out mx_rf_p 1p
+
+* RF transconductor bias (0.85V for npn13G2)
+R_bmix_p1 vdd mx_rf_p 1k
+R_bmix_p2 mx_rf_p 0 2.4k
+R_bmix_n1 vdd mx_rf_n 1k
+R_bmix_n2 mx_rf_n 0 2.4k
+
+X_mix_1 c1 mx_rf_p rf_tail 0 npn13G2 PARAMS: Nx=4
+X_mix_2 c2 mx_rf_n rf_tail 0 npn13G2 PARAMS: Nx=4
+I_rftail rf_tail 0 4m
+
+X_lobuf_1 lo_buf_p lo_p lo_tail 0 npn13G2 PARAMS: Nx=2
+X_lobuf_2 lo_buf_n lo_n lo_tail 0 npn13G2 PARAMS: Nx=2
+R_lobuf_p vdd lo_buf_p 200
+R_lobuf_n vdd lo_buf_n 200
+I_lobuf_tail lo_tail 0 2m
+
+V_lo_p lo_p 0 SIN(0 0.5 30.001G)
+V_lo_n lo_n 0 SIN(0 0.5 30.001G 0 0 180)
+
+X_mix_3 if_p lo_buf_p c1 0 npn13G2 PARAMS: Nx=4
+X_mix_4 if_p lo_buf_n c2 0 npn13G2 PARAMS: Nx=4
+X_mix_5 if_n lo_buf_n c1 0 npn13G2 PARAMS: Nx=4
+X_mix_6 if_n lo_buf_p c2 0 npn13G2 PARAMS: Nx=4
+R_ld_p vdd if_p 200
+R_ld_n vdd if_n 200
+
+* === IF AMP (FIXED bias, cap: 10pF out, 100nF coupling) ===
+* 100nF coupling: Z=1.6Ω at 1MHz (true DC block vs 1nF → Z=159Ω)
+C_cif if_p if_base 100n
+C_ifbase if_base 0 2p
+R_ifb1 vdd_if if_base 1750
+R_ifb2 if_base 0 4250
+X_if if_out if_base if_emit 0 npn13G2 PARAMS: Nx=2
+R_ifld vdd_if if_out 700
+R_ifre if_emit 0 10
+C_ifout if_out 0 10p
+
+* Analysis
+.tran 0.5p 20n 0 0.5p
+
+.measure tran lna_vpp PP v(lna_out) FROM=15n TO=20n
+.measure tran mix_if_vpp PP v(if_p) FROM=15n TO=20n
+.measure tran ifamp_vpp PP v(if_out) FROM=15n TO=20n
+.measure tran rx_vin PP v(rx_in) FROM=15n TO=20n
+.measure tran if_vbase AVG v(if_base) FROM=15n TO=20n
+.measure tran if_vcoll AVG v(if_out) FROM=15n TO=20n
+
+.print tran v(rx_in) v(lna_out) v(if_p) v(if_n) v(if_out) v(if_base) v(if_emit)
+
+.end

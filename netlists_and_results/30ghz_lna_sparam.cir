@@ -1,0 +1,64 @@
+* 30 GHz LNA S-Parameter Extraction — Xyce
+* ==============================================================================
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerHBT.lib hbt_typ
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerRES.lib res_typ
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerCAP.lib cap_typ
+
+.options NONLIN MAXSTEP=200
+.options DEVICE temp=27
+
+.include ind_180pH_model.cir
+.include ind_60pH_model.cir
+.include ind_100pH_model.cir
+
+Vdd vdd 0 3.0
+
+* Input Port
+P1 lna_in 0 port=1 z0=50
+
+* Input matching
+X_lnas lna_in lna_match 0 ind_180pH_model
+C_lnash lna_match 0 46f
+C_lnablk lna_match lna_base 200f
+
+* CE Base bias (Target ~1mA-2mA)
+R_lnab1 vdd lna_base 23.5k
+R_lnab2 lna_base 0 9k
+
+* CE stage (Nx=2)
+X_lna_ce lna_coll lna_base lna_emit 0 npn13G2 PARAMS: Nx=2
+
+* Inductive degeneration
+X_lna_deg lna_emit 0 0 ind_60pH_model
+
+* CB stage bias
+R_lnacb1 vdd lna_cbias 10k
+R_lnacb2 lna_cbias 0 20k
+C_lna_bypass lna_cbias 0 5p
+
+* CB base stabilization resistor (In-Band Fix)
+.param r_cb_stab = 5
+R_cb_stab lna_cbias lna_cbias_node {r_cb_stab}
+
+* CB stage
+X_lna_cb lna_out lna_cbias_node lna_coll 0 npn13G2 PARAMS: Nx=2
+
+* Load inductor + resonance cap
+X_lna_load vdd lna_out 0 ind_100pH_model
+C_lna_res lna_out 0 200f
+
+* Near-DC Stabilization (Out-of-band loading)
+R_out_stab lna_out lna_out_stab 10
+C_out_stab lna_out_stab 0 100p
+
+* AC coupled output
+C_out_ac lna_out lna_out_ac 1p
+
+* Output Port (50 ohms for standard S-params)
+P2 lna_out_ac 0 port=2 z0=50
+
+* Analysis
+.LIN SPARCALC=1 FORMAT=TOUCHSTONE FILE=lna_350GHz.s2p
+.AC DEC 50 10MEG 350G
+
+.end

@@ -1,0 +1,5 @@
+* Equivalent Pi-network for ind_500pH from openEMS
+.subckt ind_500pH_model p1 p2 sub
+L_s p1 n_int 9.129999151069452e-10
+R_s n_int p2 -0.9364780440922361
+.ends ind_500pH_model

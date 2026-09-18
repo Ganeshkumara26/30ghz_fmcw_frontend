@@ -1,0 +1,38 @@
+* Nx vs m diagnostic -- resolves device-scaling ambiguity for npn13G2l in Xyce
+* Three diode-connected test devices, identical 400uA drive, different scaling syntax
+.param vbic_cje = 1.0
+.param vbic_cjc = 1.0
+.param vbic_cjcp = 1.0
+.param vbic_is = 1.0
+.param vbic_ibei = 1.0
+.param vbic_re = 1.0
+.param vbic_rcx = 1.0
+.param vbic_rbx = 1.0
+.param cap_carea = 1.0
+.param cap_cpara = 1.0
+.param rsh_rhigh = 1.0
+.param rsh_rsil = 1.0
+.param rsh_rppd = 1.0
+.param res_area = 1.0
+.param res_rpara = 1.0
+.param vbic_tf = 1.0
+.include /tmp/ihp_sg13g2/libs.tech/xyce/models/sg13g2_hbt_mod.lib
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerCAP.lib cap_typ
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerRES.lib res_typ
+
+* --- Test A: plain unit device, no scaling at all (baseline) ---
+I_a 0 node_a 400u
+X_unit node_a node_a 0 0 npn13G2l
+
+* --- Test B: exactly what the VCO netlist wrote (m=4) ---
+I_b 0 node_b 400u
+X_m4 node_b node_b 0 0 npn13G2l m=4
+
+* --- Test C: the PDK's actual documented scaling parameter (Nx=4) ---
+I_c 0 node_c 400u
+X_nx4 node_c node_c 0 0 npn13G2l Nx=4
+
+.options method=gear reltol=1e-5 temp=27
+.tran 1p 10p 0 1p
+.print tran v(node_a) v(node_b) v(node_c)
+.end

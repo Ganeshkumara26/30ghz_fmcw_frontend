@@ -1,0 +1,44 @@
+
+\documentclass[tikz,border=2mm]{standalone}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric}
+\usepackage{xcolor}
+
+\definecolor{inkNavy}{HTML}{1B2733}
+\definecolor{slate}{HTML}{3B4B5C}
+\definecolor{paper}{HTML}{FBFAF7}
+\definecolor{amber}{HTML}{C97A2B}
+\definecolor{teal}{HTML}{2E7D74}
+\definecolor{softred}{HTML}{A6402F}
+\definecolor{lightgrey}{HTML}{E7E4DD}
+\definecolor{midgrey}{HTML}{8B8A85}
+
+\begin{document}
+\begin{tikzpicture}[
+  node distance=6pt and 14pt,
+  box/.style={draw=slate, fill=lightgrey, rounded corners=2pt, text width=2.55cm, align=center, minimum height=0.85cm, font=\scriptsize},
+  term/.style={draw=amber, fill=amber!12, rounded corners=8pt, text width=1.9cm, align=center, minimum height=0.7cm, font=\scriptsize\bfseries},
+  arr/.style={-{Latex[length=1.6mm]}, slate, thick}
+]
+\node[term] (spec) {Specifications\\(CG, SSB NF)};
+\node[box, right=of spec] (top) {Topology Select\\(Gilbert Cell)};
+\node[box, right=of top] (gm) {Size RF\\Transconductor};
+\node[box, right=of gm] (quad) {Size LO\\Switching Quad};
+\node[box, right=of quad] (load) {Size IF Load\\Resistors};
+\node[box, right=of load] (bias) {Tail Current\\Biasing};
+
+\node[box, below=12pt of bias] (iso) {Verify LO/RF\\Isolation};
+\node[box, left=of iso] (rc) {Design IF\\Low-Pass Filter};
+\node[box, left=of rc] (ac) {AC Coupling\\Interface};
+\node[box, left=of ac] (pvt) {Verify True\\Physical CG};
+\node[term, left=of pvt] (fin) {Tapeout\\Sign-off};
+
+\draw[arr] (spec)--(top); \draw[arr] (top)--(gm); \draw[arr] (gm)--(quad);
+\draw[arr] (quad)--(load); \draw[arr] (load)--(bias); \draw[arr] (bias)--(iso);
+\draw[arr] (iso)--(rc); \draw[arr] (rc)--(ac); \draw[arr] (ac)--(pvt);
+\draw[arr] (pvt)--(fin);
+\end{tikzpicture}
+\end{document}

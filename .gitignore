@@ -49,3 +49,35 @@ session-*.md
 # --- Temporary files ---
 *.tmp
 *.bak
+
+# --- Simulation outputs ---
+*.prn
+*.mt0
+*.raw
+*.log
+*.s1p
+*.s2p
+*.four0
+*.ma0
+*.FD.prn
+*.hom
+
+# --- Old Scripts (Untracked) ---
+netlists_old/scripts/
+
+# --- Verilator / Build artifacts ---
+obj_dir/
+*.o
+*.a
+*.so
+
+# --- OS Junk ---
+.DS_Store
+Thumbs.db
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.tmp
+*.bak

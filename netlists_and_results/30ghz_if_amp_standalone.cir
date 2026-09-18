@@ -1,0 +1,49 @@
+* 30 GHz IF Amplifier Standalone — Xyce (from v65 real-PDK, FIXED)
+* ==============================================================================
+* CE amplifier, Nx=2, R_load=1k, R_emitter=10 Ohm
+* FIX 1: Bias divider changed from 10k/10k (Vbase=0.6V, device OFF)
+*         to 1750/4250 (Vbase=0.849V, correct turn-on)
+* FIX 2: Output bypass cap reduced from 10nF to 10pF
+*         (10nF shorts 1MHz IF signal: Z=16Ω vs R_load=1kΩ)
+*         (10pF passes 30GHz RF but transparent at 1MHz: Z=16kΩ)
+* ==============================================================================
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerHBT.lib hbt_typ
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerRES.lib res_typ
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/cornerCAP.lib cap_typ
+
+.options NONLIN MAXSTEP=200
+.options DEVICE temp=27
+
+Vdd vdd 0 1.2
+
+* Input: 1 MHz IF signal, 1mV for small-signal gain test
+Vin if_in 0 SIN(0 0.001 1Meg)
+
+* AC coupling (1nF → 159Ω at 1MHz, acceptable)
+C_cif if_in if_base 100n
+C_ifbase if_base 0 2p
+
+* Bias divider — FIXED for Vbe~0.85V
+R_ifb1 vdd if_base 1750
+R_ifb2 if_base 0 4250
+
+* CE amplifier
+X_if if_out if_base if_emit 0 npn13G2 PARAMS: Nx=2
+R_ifld vdd if_out 700
+R_ifre if_emit 0 10
+
+* Output bypass — 10pF (transparent at 1MHz, shorts 30GHz RF)
+C_ifout if_out 0 10p
+
+* Analysis — run long enough for 1MHz to settle (>5 cycles)
+.tran 50n 10u 0 50n
+
+.measure tran if_vout PP v(if_out) FROM=8u TO=10u
+.measure tran if_vin PP v(if_in) FROM=8u TO=10u
+.measure tran if_vbase AVG v(if_base) FROM=8u TO=10u
+.measure tran if_vcoll AVG v(if_out) FROM=8u TO=10u
+.measure tran if_vemit AVG v(if_emit) FROM=8u TO=10u
+
+.print tran v(if_in) v(if_out) v(if_base) v(if_emit)
+
+.end

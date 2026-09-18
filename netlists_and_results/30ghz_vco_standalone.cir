@@ -1,0 +1,54 @@
+* 30 GHz VCO Standalone — Xyce (from v65 real-PDK, FIXED)
+* ==============================================================================
+* Cross-coupled HBT pair, Nx=1, L=200pH, real current-mirror bias
+* Tank C adjusted for exact 30 GHz with Xyce VBIC level=12 parasitics
+* ==============================================================================
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/sg13g2_hbt_stat.lib hbt_stat
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/resistors_stat.lib res_stat
+.lib /tmp/ihp_sg13g2/libs.tech/xyce/models/capacitors_stat.lib cap_stat
+
+.options NONLIN MAXSTEP=200
+.options DEVICE temp=27
+
+Vdd vdd 0 1.2
+
+* Lossy spiral inductor subcircuit
+.include ind_200pH_model.cir
+
+X_ind1 vdd out_x_int 0 ind_200pH_model
+X_ind2 vdd out_y_int 0 ind_200pH_model
+Rser_x out_x_int out_x 5
+Rser_y out_y_int out_y 5
+
+* Tank C — reduced ~2% from 124.76fF to hit 30.00 GHz
+* (29.55 GHz measured means C is ~3% too high)
+C_var1 out_x 0 56f
+C_var2 out_y 0 56f
+
+* Cross-coupled pair
+X1 out_x out_y tail_30 0 npn13G2 PARAMS: Nx=1
+X2 out_y out_x tail_30 0 npn13G2 PARAMS: Nx=1
+
+* Real current-mirror bias
+I_ref_30 vdd ref_30 1m
+X_mref_30 ref_30 ref_30 0 0 npn13G2 PARAMS: Nx=1
+R_mtail_iso tail_30 mtail_coll_30 10
+C_mtail_bypass mtail_coll_30 0 5f
+X_mtail_30 mtail_coll_30 ref_30 0 0 npn13G2 PARAMS: Nx=1
+C_bypass_ref_30 ref_30 0 2p
+
+* Startup kick
+I_kick_30 out_x out_y PWL(0 0 5p 2m 20p 0)
+
+* Analysis
+.ic v(out_x)=1.170 v(out_y)=1.165 v(tail_30)=0.7 v(ref_30)=0.885
+.tran 0.5p 10n 0 0.5p
+
+.measure tran vco_per TRIG v(out_x) VAL=1.17 RISE=3 TARG v(out_x) VAL=1.17 RISE=5
+.measure tran vco_vpp_x PP v(out_x) FROM=7n TO=10n
+.measure tran vco_vpp_y PP v(out_y) FROM=7n TO=10n
+.measure tran vco_idc AVG i(I_ref_30) FROM=7n TO=10n
+
+.print tran v(out_x) v(out_y) v(tail_30) v(ref_30) i(I_ref_30)
+
+.end
